@@ -1,0 +1,11 @@
+<div class="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+  <app-header (openAiModal)="showAiModal = true"></app-header>
+
+  <main class="flex-grow">
+    <router-outlet></router-outlet>
+  </main>
+
+  <app-footer></app-footer>
+
+  <app-ai-modal *ngIf="showAiModal" (close)="showAiModal = false"></app-ai-modal>
+</div>

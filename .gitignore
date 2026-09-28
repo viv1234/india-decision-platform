@@ -1,0 +1,23 @@
+# Maven / Spring Boot backend ignores
+backend/target/
+backend/*.log
+backend/.mvn/
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# Angular / Node frontend ignores
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/*.log
+frontend/npm-debug.log*
+
+# General ignores
+.DS_Store
+*.tmp
+*.log
+.env
+.env.*
+.vscode/
+.idea/
