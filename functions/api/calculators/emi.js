@@ -1,6 +1,19 @@
-export async function onRequestPost(context) {
+export async function onRequest(context) {
+  if (context.request.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Content-Type"
+      }
+    });
+  }
+
   try {
-    const body = await context.request.json();
+    let body = {};
+    if (context.request.method === "POST") {
+      try { body = await context.request.json(); } catch (e) {}
+    }
     const P = body.principal || 2500000;
     const r = (body.annualInterestRate || 8.5) / 12 / 100;
     const n = body.tenureUnit === 'MONTHS' ? (body.tenureValue || 60) : (body.tenureValue || 5) * 12;

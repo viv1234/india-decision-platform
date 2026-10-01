@@ -1,8 +1,21 @@
-export async function onRequestPost(context) {
+export async function onRequest(context) {
+  if (context.request.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "Content-Type"
+      }
+    });
+  }
+
   try {
     const request = context.request;
     const env = context.env;
-    const body = await request.json();
+    let body = {};
+    if (request.method === "POST") {
+      try { body = await request.json(); } catch (e) {}
+    }
     const userQuery = body.userQuery || "";
 
     const apiKey = env.ANTHROPIC_API_KEY || env.AI_API_KEY || "";
