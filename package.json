@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "npm run build --prefix frontend",
-    "deploy": "npx wrangler pages deploy frontend/dist/frontend/browser"
+    "build": "cd frontend && npm install && npm run build",
+    "predeploy": "npm run build",
+    "deploy": "npx wrangler pages deploy frontend/dist/frontend/browser --project-name=india-decision-platform"
   }
 }

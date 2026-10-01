@@ -1,7 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "india-decision-platform-frontend",
+  "name": "india-decision-platform",
   "pages_build_output_dir": "./dist/frontend/browser",
+  "build": {
+    "command": "npm install && npm run build"
+  },
   "assets": {
     "directory": "./dist/frontend/browser"
   }
