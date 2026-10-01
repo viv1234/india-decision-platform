@@ -213,4 +213,37 @@ export interface AiOrchestrationResponse {
   explanation: string;
   retrievedContext?: string[];
   calculationResult: any;
+  extractedParameters?: Record<string, any>;
 }
+
+export interface AiInsightRequest {
+  calculatorId: string;
+  inputData: Record<string, any>;
+  resultData: Record<string, any>;
+}
+
+export interface AiInsightResponse {
+  healthStatus: string;
+  badgeColor: string;
+  title: string;
+  aiTakeaway: string;
+  keyObservations: string[];
+  recommendedNextTool: string;
+}
+
+export interface CarAffordabilityJourneyResponse {
+  monthlyIncome: number;
+  carPrice: number;
+  downPayment: number;
+  loanAmount: number;
+  monthlyEmi: number;
+  monthlyFuelCost: number;
+  totalMonthlyExpense: number;
+  safeMaxEmiThreshold: number;
+  riskLevel: string;
+  badgeColor: string;
+  aiDecisionSummary: string;
+  financialRuleChecklist: string[];
+  alternativeOptions: string[];
+}
+

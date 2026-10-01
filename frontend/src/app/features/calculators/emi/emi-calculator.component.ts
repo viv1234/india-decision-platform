@@ -1,15 +1,17 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { CalculatorService } from '../../../core/services/calculator.service';
-import { EmiResponse } from '../../../core/models/calculator.model';
+import { EmiResponse, AiInsightResponse } from '../../../core/models/calculator.model';
 import { SimpleChartComponent } from '../../../shared/components/simple-chart/simple-chart.component';
 import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer/disclaimer.component';
+import { AiInsightCardComponent } from '../../../shared/components/ai-insight-card/ai-insight-card.component';
 
 @Component({
   selector: 'app-emi-calculator',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SimpleChartComponent, DisclaimerNoticeComponent],
+  imports: [CommonModule, ReactiveFormsModule, SimpleChartComponent, DisclaimerNoticeComponent, AiInsightCardComponent],
   template: `
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -140,6 +142,9 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               ]"
             ></app-simple-chart>
 
+            <!-- AI Insight Takeaway Card -->
+            <app-ai-insight-card [insight]="aiInsight"></app-ai-insight-card>
+
           </div>
 
           <app-disclaimer-notice></app-disclaimer-notice>
@@ -153,10 +158,15 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
 export class EmiCalculatorComponent implements OnInit {
   emiForm!: FormGroup;
   result: EmiResponse | null = null;
+  aiInsight: AiInsightResponse | null = null;
   loading: boolean = false;
   error: string | null = null;
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  constructor(
+    private fb: FormBuilder,
+    private calculatorService: CalculatorService,
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit(): void {
     this.emiForm = this.fb.group({
@@ -166,7 +176,17 @@ export class EmiCalculatorComponent implements OnInit {
       tenureUnit: ['YEARS', Validators.required]
     });
 
-    this.calculate();
+    this.route.queryParams.subscribe(params => {
+      if (params['principal']) {
+        this.emiForm.patchValue({
+          principal: Number(params['principal']) || 2500000,
+          annualInterestRate: Number(params['annualInterestRate']) || 8.5,
+          tenureValue: Number(params['tenureValue']) || 5,
+          tenureUnit: params['tenureUnit'] || 'YEARS'
+        });
+      }
+      this.calculate();
+    });
   }
 
   isFieldInvalid(field: string): boolean {
@@ -182,11 +202,21 @@ export class EmiCalculatorComponent implements OnInit {
 
     this.loading = true;
     this.error = null;
+    const formVals = this.emiForm.value;
 
-    this.calculatorService.calculateEmi(this.emiForm.value).subscribe({
+    this.calculatorService.calculateEmi(formVals).subscribe({
       next: (res) => {
         this.result = res;
         this.loading = false;
+
+        // Fetch AI Decision Insight
+        this.calculatorService.getAiInsight({
+          calculatorId: 'emi',
+          inputData: formVals,
+          resultData: res
+        }).subscribe(insightRes => {
+          this.aiInsight = insightRes;
+        });
       },
       error: (err) => {
         this.error = err?.error?.message || 'Failed to calculate EMI.';
@@ -205,3 +235,4 @@ export class EmiCalculatorComponent implements OnInit {
     this.calculate();
   }
 }
+

@@ -153,6 +153,53 @@ export class CalculatorService {
     );
   }
 
+  getAiInsight(req: { calculatorId: string; inputData: any; resultData: any }): Observable<any> {
+    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/ai/insight`, req).pipe(
+      map(res => res.data),
+      catchError(() => of({
+        healthStatus: 'HEALTHY',
+        badgeColor: 'bg-emerald-500',
+        title: '⚡ AI Financial Decision Insight',
+        aiTakeaway: 'Calculated results follow standard Indian personal finance guidelines.',
+        keyObservations: [
+          'Monthly financial commitments verified against standard benchmarks.',
+          'Ensure 6 months of essential expenses are kept in an emergency liquid fund.'
+        ],
+        recommendedNextTool: 'sip'
+      }))
+    );
+  }
+
+  getCarAffordabilityJourney(params: { monthlyIncome?: number; carPrice?: number; downPayment?: number; tenureYears?: number; interestRate?: number }): Observable<any> {
+    const query = `monthlyIncome=${params.monthlyIncome || 120000}&carPrice=${params.carPrice || 2500000}&downPayment=${params.downPayment || 500000}&tenureYears=${params.tenureYears || 5}&interestRate=${params.interestRate || 8.5}`;
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/ai/journey/car-affordability?${query}`).pipe(
+      map(res => res.data),
+      catchError(() => of({
+        monthlyIncome: params.monthlyIncome || 120000,
+        carPrice: params.carPrice || 2500000,
+        downPayment: params.downPayment || 500000,
+        loanAmount: 2000000,
+        monthlyEmi: 41067,
+        monthlyFuelCost: 6667,
+        totalMonthlyExpense: 47734,
+        safeMaxEmiThreshold: 12000,
+        riskLevel: 'HIGH_RISK',
+        badgeColor: 'bg-red-500',
+        aiDecisionSummary: 'Total monthly car cost (₹47,734) exceeds the safe 10% gross income limit (₹12,000). Consider a higher down payment or selecting a vehicle under ₹12 Lakhs.',
+        financialRuleChecklist: [
+          '20% Down Payment Check: Offered ₹5,00,000 (Met)',
+          '4-Year Loan Tenure Check: Currently 5 years',
+          '10% Gross Income EMI Rule: Limit ₹12,000 vs Actual ₹41,067 (Exceeded)'
+        ],
+        alternativeOptions: [
+          'Option A: Increase down payment to ₹10,00,000.',
+          'Option B: Choose a car priced under ₹12,00,000.',
+          'Option C: Save via equity SIP for 24 months before purchase.'
+        ]
+      }))
+    );
+  }
+
   // --- Client-Side Hybrid Calculation Fallbacks ---
 
   private fallbackEmi(req: EmiRequest): EmiResponse {

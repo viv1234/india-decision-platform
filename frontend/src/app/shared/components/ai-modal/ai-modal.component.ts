@@ -159,7 +159,8 @@ export class AiModalComponent {
   navigateToCalculator() {
     if (this.orchestrationResult) {
       this.close.emit();
-      this.router.navigate(['/calculators', this.orchestrationResult.recommendedCalculatorId]);
+      const queryParams = this.orchestrationResult.extractedParameters || {};
+      this.router.navigate(['/calculators', this.orchestrationResult.recommendedCalculatorId], { queryParams });
     }
   }
 }

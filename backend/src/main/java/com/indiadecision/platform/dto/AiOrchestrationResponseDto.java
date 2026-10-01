@@ -1,7 +1,9 @@
 package com.indiadecision.platform.dto;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class AiOrchestrationResponseDto {
     private String intentCode;
@@ -11,6 +13,7 @@ public class AiOrchestrationResponseDto {
     private String explanation;
     private List<String> retrievedContext = new ArrayList<>();
     private Object calculationResult;
+    private Map<String, Object> extractedParameters = new HashMap<>();
 
     public AiOrchestrationResponseDto() {}
 
@@ -22,6 +25,18 @@ public class AiOrchestrationResponseDto {
         this.explanation = explanation;
         this.retrievedContext = retrievedContext != null ? retrievedContext : new ArrayList<>();
         this.calculationResult = calculationResult;
+        this.extractedParameters = new HashMap<>();
+    }
+
+    public AiOrchestrationResponseDto(String intentCode, String recommendedCalculatorId, String calculatorName, List<String> requiredInputs, String explanation, List<String> retrievedContext, Object calculationResult, Map<String, Object> extractedParameters) {
+        this.intentCode = intentCode;
+        this.recommendedCalculatorId = recommendedCalculatorId;
+        this.calculatorName = calculatorName;
+        this.requiredInputs = requiredInputs;
+        this.explanation = explanation;
+        this.retrievedContext = retrievedContext != null ? retrievedContext : new ArrayList<>();
+        this.calculationResult = calculationResult;
+        this.extractedParameters = extractedParameters != null ? extractedParameters : new HashMap<>();
     }
 
     public String getIntentCode() {
@@ -78,5 +93,13 @@ public class AiOrchestrationResponseDto {
 
     public void setCalculationResult(Object calculationResult) {
         this.calculationResult = calculationResult;
+    }
+
+    public Map<String, Object> getExtractedParameters() {
+        return extractedParameters;
+    }
+
+    public void setExtractedParameters(Map<String, Object> extractedParameters) {
+        this.extractedParameters = extractedParameters;
     }
 }
