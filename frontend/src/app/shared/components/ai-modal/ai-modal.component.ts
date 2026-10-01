@@ -83,8 +83,16 @@ import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
         <!-- Result / Orchestration Output -->
         <div *ngIf="orchestrationResult" class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs">
           <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Detected Intent</span>
+            <span class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Detected Intent & RAG Framework</span>
             <span class="badge badge-purple">{{ orchestrationResult.intentCode }}</span>
+          </div>
+
+          <!-- RAG Knowledge Snippets -->
+          <div *ngIf="orchestrationResult.retrievedContext && orchestrationResult.retrievedContext.length > 0" class="space-y-1.5">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Retrieved Financial Guidelines:</span>
+            <div *ngFor="let snippet of orchestrationResult.retrievedContext" class="bg-blue-50/70 border border-blue-200 text-blue-900 p-2.5 rounded-lg text-xs font-medium">
+              💡 {{ snippet }}
+            </div>
           </div>
 
           <p class="text-slate-900 font-medium leading-relaxed bg-white p-3 rounded-lg border border-slate-200">

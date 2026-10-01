@@ -211,5 +211,6 @@ export interface AiOrchestrationResponse {
   calculatorName: string;
   requiredInputs: string[];
   explanation: string;
+  retrievedContext?: string[];
   calculationResult: any;
 }

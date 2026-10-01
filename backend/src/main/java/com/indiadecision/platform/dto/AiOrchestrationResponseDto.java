@@ -1,5 +1,6 @@
 package com.indiadecision.platform.dto;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class AiOrchestrationResponseDto {
@@ -8,16 +9,18 @@ public class AiOrchestrationResponseDto {
     private String calculatorName;
     private List<String> requiredInputs;
     private String explanation;
+    private List<String> retrievedContext = new ArrayList<>();
     private Object calculationResult;
 
     public AiOrchestrationResponseDto() {}
 
-    public AiOrchestrationResponseDto(String intentCode, String recommendedCalculatorId, String calculatorName, List<String> requiredInputs, String explanation, Object calculationResult) {
+    public AiOrchestrationResponseDto(String intentCode, String recommendedCalculatorId, String calculatorName, List<String> requiredInputs, String explanation, List<String> retrievedContext, Object calculationResult) {
         this.intentCode = intentCode;
         this.recommendedCalculatorId = recommendedCalculatorId;
         this.calculatorName = calculatorName;
         this.requiredInputs = requiredInputs;
         this.explanation = explanation;
+        this.retrievedContext = retrievedContext != null ? retrievedContext : new ArrayList<>();
         this.calculationResult = calculationResult;
     }
 
@@ -59,6 +62,14 @@ public class AiOrchestrationResponseDto {
 
     public void setExplanation(String explanation) {
         this.explanation = explanation;
+    }
+
+    public List<String> getRetrievedContext() {
+        return retrievedContext;
+    }
+
+    public void setRetrievedContext(List<String> retrievedContext) {
+        this.retrievedContext = retrievedContext;
     }
 
     public Object getCalculationResult() {
