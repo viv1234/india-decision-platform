@@ -10,8 +10,8 @@ import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200 relative overflow-hidden">
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-4 sm:p-6 border border-slate-200 relative overflow-y-auto max-h-[92vh]">
         
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
