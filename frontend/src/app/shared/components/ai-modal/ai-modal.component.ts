@@ -81,30 +81,66 @@ import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
         </div>
 
         <!-- Result / Orchestration Output -->
-        <div *ngIf="orchestrationResult" class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs">
+        <div *ngIf="orchestrationResult" class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 text-xs animate-fade-in">
           <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Detected Intent & RAG Framework</span>
-            <span class="badge badge-purple">{{ orchestrationResult.intentCode }}</span>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Detected Intent</span>
+              <span class="badge badge-purple">{{ orchestrationResult.intentCode }}</span>
+            </div>
+            <span
+              *ngIf="orchestrationResult.decisionVerdict"
+              [class]="'text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider shadow-sm ' + (orchestrationResult.badgeColor || 'bg-emerald-500')"
+            >
+              {{ (orchestrationResult.decisionVerdict || 'HEALTHY').replace('_', ' ') }}
+            </span>
+          </div>
+
+          <!-- Key Metrics Chips -->
+          <div *ngIf="orchestrationResult.keyMetrics && objectKeys(orchestrationResult.keyMetrics).length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div *ngFor="let key of objectKeys(orchestrationResult.keyMetrics)" class="bg-white p-2.5 rounded-lg border border-slate-200 text-center">
+              <span class="text-[10px] font-semibold text-slate-500 uppercase block truncate">{{ key }}</span>
+              <span class="text-xs font-extrabold text-blue-900 block mt-0.5">{{ orchestrationResult.keyMetrics[key] }}</span>
+            </div>
           </div>
 
           <!-- RAG Knowledge Snippets -->
           <div *ngIf="orchestrationResult.retrievedContext && orchestrationResult.retrievedContext.length > 0" class="space-y-1.5">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Retrieved Financial Guidelines:</span>
-            <div *ngFor="let snippet of orchestrationResult.retrievedContext" class="bg-blue-50/70 border border-blue-200 text-blue-900 p-2.5 rounded-lg text-xs font-medium">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Retrieved Financial Rule:</span>
+            <div *ngFor="let snippet of orchestrationResult.retrievedContext" class="bg-blue-50/80 border border-blue-200 text-blue-900 p-2.5 rounded-lg text-xs font-medium">
               💡 {{ snippet }}
             </div>
           </div>
 
-          <p class="text-slate-900 font-medium leading-relaxed bg-white p-3 rounded-lg border border-slate-200">
-            {{ orchestrationResult.explanation }}
-          </p>
+          <!-- AI Explanation -->
+          <div class="bg-white p-3.5 rounded-xl border border-slate-200">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">AI Recommendation & Analysis:</span>
+            <p class="text-slate-900 font-medium leading-relaxed">
+              {{ orchestrationResult.explanation }}
+            </p>
+          </div>
 
-          <div class="flex items-center justify-between pt-2">
-            <div class="flex flex-col">
-              <span class="text-[10px] text-slate-600 font-semibold uppercase">Recommended Calculator</span>
-              <span class="font-bold text-blue-800 text-sm">{{ orchestrationResult.calculatorName }}</span>
+          <!-- Interactive Follow-Up Questions -->
+          <div *ngIf="orchestrationResult.followUpQuestions && orchestrationResult.followUpQuestions.length > 0" class="space-y-2 pt-1">
+            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">Ask a follow-up question:</span>
+            <div class="flex flex-col gap-1.5">
+              <button
+                *ngFor="let followUp of orchestrationResult.followUpQuestions"
+                (click)="askFollowUp(followUp)"
+                class="text-xs bg-white hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 text-slate-700 font-medium p-2.5 rounded-xl border border-slate-200 transition-colors text-left flex items-center justify-between cursor-pointer group"
+              >
+                <span>💬 "{{ followUp }}"</span>
+                <span class="text-amber-500 group-hover:translate-x-1 transition-transform font-bold">→</span>
+              </button>
             </div>
-            <button (click)="navigateToCalculator()" class="btn-primary text-xs py-2 px-3 cursor-pointer">
+          </div>
+
+          <!-- Open Calculator Action -->
+          <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+            <div class="flex flex-col">
+              <span class="text-[10px] text-slate-500 font-semibold uppercase">Recommended Tool</span>
+              <span class="font-bold text-blue-800 text-xs sm:text-sm">{{ orchestrationResult.calculatorName }}</span>
+            </div>
+            <button (click)="navigateToCalculator()" class="btn-primary text-xs py-2 px-3.5 cursor-pointer shadow-md">
               Open {{ orchestrationResult.calculatorName }}
             </button>
           </div>
@@ -120,6 +156,7 @@ export class AiModalComponent {
   userQuery: string = 'I earn ₹1 lakh per month. Can I afford a ₹25 lakh car?';
   loading: boolean = false;
   orchestrationResult: AiOrchestrationResponse | null = null;
+  objectKeys = Object.keys;
 
   sampleQueries = [
     'I earn ₹1 lakh per month. Can I afford a ₹25 lakh car?',
@@ -138,6 +175,11 @@ export class AiModalComponent {
   setQuery(q: string) {
     this.userQuery = q;
     this.orchestrationResult = null;
+  }
+
+  askFollowUp(q: string) {
+    this.userQuery = q;
+    this.orchestrate();
   }
 
   orchestrate() {

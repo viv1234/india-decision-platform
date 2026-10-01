@@ -63,18 +63,20 @@ async function handleOrchestrate(request, env) {
 
     const extracted = extractParametersFromQuery(userQuery);
     const ragContext = retrieveRagContext(userQuery);
+    const synthesis = buildDecisionSynthesis(extracted.intentCode, extracted.params);
 
     let explanation = "";
     if (apiKey && apiKey.length > 10) {
       try {
-        explanation = await callAnthropicApi(userQuery, ragContext, apiKey);
+        const promptContext = `${userQuery}\n\nDecision Analysis: ${JSON.stringify(synthesis.keyMetrics)}\nRule Guidelines: ${ragContext.join("\n")}`;
+        explanation = await callAnthropicApi(userQuery, promptContext, apiKey);
       } catch (e) {
         console.error("Worker Anthropic API Call Error:", e);
       }
     }
 
     if (!explanation) {
-      explanation = `Goal Parsed: "${userQuery}". Based on Indian financial rules, keep loan EMIs under 30% of income and rent under 30%.`;
+      explanation = synthesis.defaultExplanation;
     }
 
     return jsonResponse({
@@ -85,11 +87,118 @@ async function handleOrchestrate(request, env) {
       explanation: explanation,
       retrievedContext: ragContext,
       calculationResult: null,
-      extractedParameters: extracted.params
+      extractedParameters: extracted.params,
+      decisionVerdict: synthesis.verdict,
+      badgeColor: synthesis.badgeColor,
+      followUpQuestions: synthesis.followUpQuestions,
+      keyMetrics: synthesis.keyMetrics
     });
   } catch (err) {
     return jsonResponse({ error: err.message }, 500, false);
   }
+}
+
+function buildDecisionSynthesis(intentCode, params) {
+  let verdict = "HEALTHY";
+  let badgeColor = "bg-emerald-500";
+  let followUpQuestions = [];
+  let keyMetrics = {};
+  let defaultExplanation = "";
+
+  if (intentCode === "RENT_AFFORDABILITY") {
+    const income = params.monthlyIncome || 90000;
+    const rent = params.monthlyRent || 30000;
+    const ratio = Math.round((rent / income) * 1000) / 10;
+    const safeMax = Math.round(income * 0.30);
+    const remaining = income - rent;
+
+    if (ratio > 40) { verdict = "HIGH_RISK"; badgeColor = "bg-red-500"; }
+    else if (ratio > 30) { verdict = "MODERATE_RISK"; badgeColor = "bg-amber-500"; }
+
+    keyMetrics = {
+      "Rent-to-Income Ratio": `${ratio}%`,
+      "Max Recommended Rent": `₹${safeMax.toLocaleString("en-IN")}`,
+      "Remaining Monthly Budget": `₹${remaining.toLocaleString("en-IN")}`
+    };
+
+    followUpQuestions = [
+      `What is the maximum safe rent budget for ₹${income.toLocaleString("en-IN")} salary?`,
+      `How much monthly SIP can I invest with my remaining ₹${remaining.toLocaleString("en-IN")} income?`,
+      `What if I have an existing loan EMI of ₹10,000/month?`
+    ];
+
+    defaultExplanation = `For a salary of ₹${income.toLocaleString("en-IN")}, paying ₹${rent.toLocaleString("en-IN")} rent is ${ratio}% of your income. The 30% financial rule recommends keeping rent under ₹${safeMax.toLocaleString("en-IN")}. You have ₹${remaining.toLocaleString("en-IN")} left for expenses and savings.`;
+  } else if (intentCode === "CAR_AFFORDABILITY") {
+    const income = params.monthlyIncome || 100000;
+    const price = params.carPrice || 2500000;
+    const downPayment = params.downPayment || price * 0.20;
+    const loan = Math.max(0, price - downPayment);
+    const emi = Math.round((loan * (0.085 / 12) * Math.pow(1 + 0.085 / 12, 60)) / (Math.pow(1 + 0.085 / 12, 60) - 1));
+    const safeLimit = Math.round(income * 0.10);
+
+    if (emi > safeLimit * 1.5) { verdict = "HIGH_RISK"; badgeColor = "bg-red-500"; }
+    else if (emi > safeLimit) { verdict = "MODERATE_RISK"; badgeColor = "bg-amber-500"; }
+
+    keyMetrics = {
+      "Estimated Car EMI": `₹${emi.toLocaleString("en-IN")}/mo`,
+      "10% Safe EMI Threshold": `₹${safeLimit.toLocaleString("en-IN")}/mo`,
+      "Down Payment": `₹${downPayment.toLocaleString("en-IN")}`
+    };
+
+    followUpQuestions = [
+      `How much down payment is required to buy a ₹${(price / 100000).toFixed(1)} Lakh car safely?`,
+      `What car price range is safe for ₹${income.toLocaleString("en-IN")} monthly salary?`,
+      `How much will extending loan tenure from 5 to 7 years reduce EMI?`
+    ];
+
+    defaultExplanation = `A ₹${(price / 100000).toFixed(1)} Lakh car generates an EMI of ~₹${emi.toLocaleString("en-IN")}/month. The 20-4-10 rule suggests keeping total car expenses under ₹${safeLimit.toLocaleString("en-IN")}/month (10% of gross salary).`;
+  } else if (intentCode === "SALARY_INHAND") {
+    const ctc = params.annualCtc || 1500000;
+    const gross = ctc / 12;
+    const inhand = gross - (Math.min(gross * 0.5 * 0.12, 1800) + 200);
+
+    keyMetrics = {
+      "Annual CTC": `₹${(ctc / 100000).toFixed(1)} LPA`,
+      "Monthly Gross": `₹${Math.round(gross).toLocaleString("en-IN")}`,
+      "Est. Net In-Hand": `₹${Math.round(inhand).toLocaleString("en-IN")}/mo`
+    };
+
+    followUpQuestions = [
+      `How can I reduce TDS tax deductions on my salary?`,
+      `How much should I invest in EPF & Section 80C to maximize in-hand?`,
+      `Compare Old Tax Regime vs New Tax Regime for my CTC`
+    ];
+
+    defaultExplanation = `For a CTC of ₹${(ctc / 100000).toFixed(1)} LPA, your estimated monthly in-hand salary is ~₹${Math.round(inhand).toLocaleString("en-IN")} after standard PF and Professional Tax deductions.`;
+  } else if (intentCode === "SIP_GROWTH") {
+    const inv = params.monthlyInvestment || 10000;
+    const total = inv * 120;
+    const fv = Math.round(inv * ((Math.pow(1 + 0.01, 120) - 1) / 0.01) * 1.01);
+
+    keyMetrics = {
+      "Monthly SIP": `₹${inv.toLocaleString("en-IN")}`,
+      "Total Invested (10 Yrs)": `₹${total.toLocaleString("en-IN")}`,
+      "Estimated Wealth": `₹${fv.toLocaleString("en-IN")}`
+    };
+
+    followUpQuestions = [
+      `How much will my SIP wealth grow if I step up investment by 10% yearly?`,
+      `Should I invest in Index Funds or Flexi-Cap Mutual Funds?`,
+      `What is the inflation-adjusted value of my future SIP returns?`
+    ];
+
+    defaultExplanation = `Investing ₹${inv.toLocaleString("en-IN")}/month in a SIP for 10 years at an expected 12% annual return can grow your ₹${total.toLocaleString("en-IN")} investment into ₹${fv.toLocaleString("en-IN")}.`;
+  } else {
+    followUpQuestions = [
+      `How does this decision impact my monthly emergency savings buffer?`,
+      `Which calculator should I use next to optimize my budget?`,
+      `What are the tax implications of this financial decision?`
+    ];
+
+    defaultExplanation = `Goal Parsed: "${params.userQuery || 'Financial query'}". We recommend checking our loan EMI, salary, or rent calculators to verify your numbers against financial guidelines.`;
+  }
+
+  return { verdict, badgeColor, followUpQuestions, keyMetrics, defaultExplanation };
 }
 
 async function handleInsight(request, env) {

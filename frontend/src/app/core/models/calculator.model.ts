@@ -214,6 +214,10 @@ export interface AiOrchestrationResponse {
   retrievedContext?: string[];
   calculationResult: any;
   extractedParameters?: Record<string, any>;
+  decisionVerdict?: string;
+  badgeColor?: string;
+  followUpQuestions?: string[];
+  keyMetrics?: Record<string, string>;
 }
 
 export interface AiInsightRequest {
