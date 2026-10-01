@@ -28,6 +28,12 @@ spring:
     init:
       mode: always
 
+ai:
+  api:
+    key: ${AI_API_KEY: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}
+    provider: anthropic
+    model: claude-3-haiku-20240307
+
 logging:
   level:
     root: INFO
