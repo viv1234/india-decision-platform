@@ -1,4 +1,4 @@
--- Database Schema for India Decision Platform (Phase 1)
+-- Database Schema for India Decision Platform
 
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,

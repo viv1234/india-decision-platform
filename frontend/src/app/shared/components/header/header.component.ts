@@ -38,7 +38,7 @@ import { RouterModule } from '@angular/router';
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
             <span>Ask AI Assistant</span>
-            <span class="hidden sm:inline bg-amber-700/40 text-[10px] px-1.5 py-0.5 rounded font-mono uppercase">Phase 1</span>
+            <span class="hidden sm:inline bg-amber-700/40 text-[10px] px-1.5 py-0.5 rounded font-mono uppercase">Live</span>
           </button>
         </div>
 

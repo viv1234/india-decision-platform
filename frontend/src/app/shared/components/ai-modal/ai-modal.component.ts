@@ -20,7 +20,7 @@ import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
               ⚡
             </div>
             <div>
-              <h3 class="text-base font-bold text-slate-900">AI Decision Assistant (Phase 1 Preview)</h3>
+              <h3 class="text-base font-bold text-slate-900">AI Decision Assistant</h3>
               <p class="text-xs text-slate-500">Goal → Intent → Calculator Selection → Explanation</p>
             </div>
           </div>

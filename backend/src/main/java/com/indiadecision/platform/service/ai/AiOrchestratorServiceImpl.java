@@ -27,7 +27,7 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         AiToolDescriptor descriptor = toolRegistry.getDescriptor(intentResult.recommendedCalculatorId());
         String toolName = descriptor != null ? descriptor.getToolName() : "Financial Calculator";
 
-        // Demo sample calculation result for Phase 1 validation if query includes numbers
+        // Demo sample calculation result for validation if query includes numbers
         Object result = null;
         if (intentResult.intent() == AiIntent.CAR_AFFORDABILITY || intentResult.intent() == AiIntent.LOAN_AFFORDABILITY) {
             result = emiCalculatorService.calculateEmi(new EmiRequestDto(2500000.0, 8.5, 5, "YEARS"));

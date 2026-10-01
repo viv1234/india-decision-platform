@@ -21,7 +21,7 @@ import { CalculatorMetadata } from '../../core/models/calculator.model';
         <div class="max-w-5xl mx-auto text-center relative z-10">
           
           <div class="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-400/20 px-3.5 py-1.5 rounded-full text-xs font-semibold text-blue-300 mb-6 backdrop-blur-md">
-            <span>🚀 Phase 1 Foundation Live</span>
+            <span>🚀 Decision Platform Live</span>
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           </div>
 

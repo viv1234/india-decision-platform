@@ -56,7 +56,7 @@ import { RouterModule } from '@angular/router';
         </div>
 
         <div class="border-t border-slate-800 pt-8 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-4">
-          <p>© 2026 BharatDecision Platform (Phase 1 Foundation). All rights reserved.</p>
+          <p>© 2026 BharatDecision Platform. All rights reserved.</p>
           <div class="flex items-center gap-6">
             <span class="text-slate-400">Low-Cost Calculation Engine</span>
             <span>REST API Source of Truth</span>

@@ -15,7 +15,7 @@ import { CalculatorMetadata } from '../../core/models/calculator.model';
       <!-- Page Header -->
       <div class="mb-8">
         <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Calculator Directory</h1>
-        <p class="text-slate-600 text-sm">Explore all 10 specialized financial and decision calculators available in Phase 1.</p>
+        <p class="text-slate-600 text-sm">Explore all 10 specialized financial and decision calculators available on the platform.</p>
       </div>
 
       <!-- Filter Category Tabs -->
