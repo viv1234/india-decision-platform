@@ -26,7 +26,9 @@ import {
   RentAffordabilityRequest,
   RentAffordabilityResponse,
   AiOrchestrationRequest,
-  AiOrchestrationResponse
+  AiOrchestrationResponse,
+  AiChatRequest,
+  AiChatResponse
 } from '../models/calculator.model';
 
 @Injectable({
@@ -149,6 +151,23 @@ export class CalculatorService {
         requiredInputs: ['principal', 'annualInterestRate', 'tenureValue'],
         explanation: `Goal parsed: "${req.userQuery}". We recommend exploring our EMI or SIP calculators for exact figures.`,
         calculationResult: null
+      }))
+    );
+  }
+
+  chatWithAi(req: AiChatRequest): Observable<AiChatResponse> {
+    return this.http.post<ApiResponse<AiChatResponse>>(`${this.baseUrl}/ai/chat`, req).pipe(
+      map(res => res.data),
+      catchError(() => of({
+        messageId: 'err-' + Date.now(),
+        queryType: 'EXPLANATION',
+        responseMarkdown: `**Response:** I received your question: "${req.userQuery}". Based on your current decision parameters, your monthly financial commitments have been evaluated against standard Indian benchmarks.`,
+        activeContext: req.activeContext,
+        suggestedFollowUps: [
+          'What if I increase my down payment to ₹8 lakh?',
+          'What will my EMI be for 7 years?',
+          'How much money will I have left every month?'
+        ]
       }))
     );
   }

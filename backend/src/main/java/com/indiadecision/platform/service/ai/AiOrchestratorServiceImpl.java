@@ -186,6 +186,126 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         );
     }
 
+    @Override
+    public AiChatResponseDto processChat(AiChatRequestDto request) {
+        String convId = request.getConversationId() != null ? request.getConversationId() : UUID.randomUUID().toString();
+        String query = request.getUserQuery() != null ? request.getUserQuery().trim() : "";
+
+        AiChatRequestDto.ActiveContextDto context = request.getActiveContext();
+        if (context == null) {
+            context = new AiChatRequestDto.ActiveContextDto();
+        }
+
+        Map<String, Object> currentParams = new HashMap<>(context.getExtractedParameters() != null ? context.getExtractedParameters() : Collections.emptyMap());
+        String lower = query.toLowerCase(Locale.ROOT);
+
+        // Detect intent
+        AiIntentDetector.AiIntentResult intentResult = intentDetector.detectIntent(query);
+        boolean isNewIntent = context.getIntentCode() == null || (!context.getIntentCode().equals(intentResult.intent().name()) && (lower.contains("car") || lower.contains("rent") || lower.contains("salary") || lower.contains("sip")));
+
+        if (isNewIntent) {
+            currentParams.clear();
+            context.setIntentCode(intentResult.intent().name());
+            context.setRecommendedCalculatorId(intentResult.recommendedCalculatorId());
+        }
+
+        // Extract newly specified params from query
+        Map<String, Object> newlyExtracted = extractParameters(query, intentResult.intent());
+        String changesSummary = null;
+        AiChatResponseDto.ComparisonDataDto comparison = null;
+
+        // Check if user is asking for scenario comparison (e.g. "Compare this with a 20 lakh car")
+        if (lower.contains("compare") || lower.contains("versus") || lower.contains("vs")) {
+            comparison = buildComparisonScenario(query, currentParams, newlyExtracted);
+        } else if (!newlyExtracted.isEmpty()) {
+            // Parameter modification update
+            StringBuilder changes = new StringBuilder("⚡ Parameter Updated: ");
+            for (Map.Entry<String, Object> entry : newlyExtracted.entrySet()) {
+                Object oldVal = currentParams.get(entry.getKey());
+                if (oldVal != null && !oldVal.equals(entry.getValue())) {
+                    changes.append(String.format("%s changed from %s to %s. ", entry.getKey(), oldVal, entry.getValue()));
+                } else {
+                    changes.append(String.format("%s set to %s. ", entry.getKey(), entry.getValue()));
+                }
+                currentParams.put(entry.getKey(), entry.getValue());
+            }
+            changesSummary = changes.toString().trim();
+        }
+
+        context.setExtractedParameters(currentParams);
+
+        // RAG Context & AI Explanation
+        List<RagKnowledgeDocument> contextDocs = ragKnowledgeService.retrieveRelevantKnowledge(query, 2);
+        List<String> snippets = contextDocs.stream().map(d -> String.format("[%s]: %s", d.getTitle(), d.getContent())).collect(Collectors.toList());
+
+        AiToolDescriptor descriptor = toolRegistry.getDescriptor(context.getRecommendedCalculatorId());
+        String toolName = descriptor != null ? descriptor.getToolName() : "Financial Tool";
+
+        String promptContext = String.format("Query: %s. Active Params: %s. RAG Guidelines: %s", query, currentParams, snippets);
+        String explanation = aiApiClient.generateRagResponse(promptContext, contextDocs, toolName);
+
+        // Synthesize Health Verdict & Key Metrics
+        AiOrchestrationResponseDto synth = orchestrate(new AiOrchestrationRequestDto(query));
+        
+        AiChatResponseDto.ChatMessageDto message = new AiChatResponseDto.ChatMessageDto();
+        message.setId(UUID.randomUUID().toString());
+        message.setSender("assistant");
+        message.setTimestamp(new java.text.SimpleDateFormat("HH:mm").format(new Date()));
+        message.setText(explanation);
+        message.setIntentCode(context.getIntentCode());
+        message.setRecommendedCalculatorId(context.getRecommendedCalculatorId());
+        message.setCalculatorName(toolName);
+        message.setDecisionVerdict(synth.getDecisionVerdict());
+        message.setBadgeColor(synth.getBadgeColor());
+        message.setChangesSummary(changesSummary);
+        message.setKeyMetrics(synth.getKeyMetrics());
+        message.setComparisonData(comparison);
+        message.setExtractedParameters(currentParams);
+        message.setFollowUpQuestions(synth.getFollowUpQuestions());
+        message.setRetrievedContext(snippets);
+
+        context.setLastCalculationResult(synth.getCalculationResult());
+
+        return new AiChatResponseDto(convId, message, context);
+    }
+
+    private AiChatResponseDto.ComparisonDataDto buildComparisonScenario(String query, Map<String, Object> currentParams, Map<String, Object> newlyExtracted) {
+        AiChatResponseDto.ComparisonDataDto comp = new AiChatResponseDto.ComparisonDataDto();
+        comp.setTitle("📊 Scenario Comparison Matrix");
+
+        double carA = currentParams.containsKey("carPrice") ? ((Number) currentParams.get("carPrice")).doubleValue() : 2500000;
+        double carB = newlyExtracted.containsKey("carPrice") ? ((Number) newlyExtracted.get("carPrice")).doubleValue() : 2000000;
+
+        EmiResponseDto resA = emiCalculatorService.calculateEmi(new EmiRequestDto(carA * 0.8, 8.5, 5, "YEARS"));
+        EmiResponseDto resB = emiCalculatorService.calculateEmi(new EmiRequestDto(carB * 0.8, 8.5, 5, "YEARS"));
+
+        Map<String, String> metricsA = new HashMap<>();
+        metricsA.put("Car Price", String.format("₹%,.0f", carA));
+        metricsA.put("Loan Amount", String.format("₹%,.0f", carA * 0.8));
+        metricsA.put("Monthly EMI", String.format("₹%,.0f", resA.getMonthlyEmi()));
+        metricsA.put("Total Interest", String.format("₹%,.0f", resA.getTotalInterest()));
+
+        Map<String, String> metricsB = new HashMap<>();
+        metricsB.put("Car Price", String.format("₹%,.0f", carB));
+        metricsB.put("Loan Amount", String.format("₹%,.0f", carB * 0.8));
+        metricsB.put("Monthly EMI", String.format("₹%,.0f", resB.getMonthlyEmi()));
+        metricsB.put("Total Interest", String.format("₹%,.0f", resB.getTotalInterest()));
+
+        comp.setScenarioA(new AiChatResponseDto.ScenarioDto(String.format("Option A (₹%,.0f)", carA), metricsA));
+        comp.setScenarioB(new AiChatResponseDto.ScenarioDto(String.format("Option B (₹%,.0f)", carB), metricsB));
+
+        double emiDiff = resA.getMonthlyEmi() - resB.getMonthlyEmi();
+        double interestDiff = resA.getTotalInterest() - resB.getTotalInterest();
+
+        List<String> highlights = new ArrayList<>();
+        highlights.add(String.format("Option B reduces monthly EMI by ₹%,.0f/month.", emiDiff));
+        highlights.add(String.format("Option B saves ₹%,.0f in total interest over 5 years.", interestDiff));
+        highlights.add("Recommendation: Option B maintains a significantly healthier monthly cash flow buffer.");
+
+        comp.setComparisonHighlights(highlights);
+        return comp;
+    }
+
     private Map<String, Object> extractParameters(String query, AiIntent intent) {
         Map<String, Object> map = new HashMap<>();
         if (query == null) return map;

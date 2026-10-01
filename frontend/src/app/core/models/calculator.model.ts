@@ -251,3 +251,55 @@ export interface CarAffordabilityJourneyResponse {
   alternativeOptions: string[];
 }
 
+// Conversational Decision Intelligence Models
+export interface ActiveContext {
+  intentCode?: string;
+  recommendedCalculatorId?: string;
+  calculatorName?: string;
+  extractedParameters?: Record<string, any>;
+  lastCalculationResult?: any;
+  decisionVerdict?: string;
+  badgeColor?: string;
+  keyMetrics?: Record<string, string | number>;
+}
+
+export interface ComparisonScenario {
+  monthlyEmi?: number;
+  totalInterest?: number;
+  totalPayment?: number;
+  totalMonthlyExpense?: number;
+  principalAmount?: number;
+  parameters?: Record<string, any>;
+}
+
+export interface ComparisonData {
+  title?: string;
+  scenarioA: ComparisonScenario;
+  scenarioB: ComparisonScenario;
+  keyDifferences?: string[];
+  recommendation?: string;
+}
+
+export interface ChatMessage {
+  role: 'USER' | 'ASSISTANT' | 'user' | 'assistant';
+  text: string;
+}
+
+export interface AiChatRequest {
+  conversationId?: string;
+  userQuery: string;
+  activeContext?: ActiveContext;
+  history?: ChatMessage[];
+}
+
+export interface AiChatResponse {
+  messageId?: string;
+  queryType?: string;
+  responseMarkdown?: string;
+  activeContext?: ActiveContext;
+  parameterChanges?: Record<string, { oldVal: any; newVal: any }>;
+  comparisonData?: ComparisonData;
+  suggestedFollowUps?: string[];
+}
+
+

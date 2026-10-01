@@ -39,4 +39,10 @@ public class AiOrchestratorController {
                 monthlyIncome, carPrice, downPayment, tenureYears, interestRate);
         return ResponseEntity.ok(ApiResponse.success(result, "Car affordability decision journey evaluated"));
     }
+
+    @PostMapping("/chat")
+    public ResponseEntity<ApiResponse<AiChatResponseDto>> processChat(@RequestBody AiChatRequestDto request) {
+        AiChatResponseDto response = aiOrchestratorService.processChat(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Conversational decision state updated"));
+    }
 }

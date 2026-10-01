@@ -1,5 +1,7 @@
 package com.indiadecision.platform.service.ai;
 
+import com.indiadecision.platform.dto.AiChatRequestDto;
+import com.indiadecision.platform.dto.AiChatResponseDto;
 import com.indiadecision.platform.dto.AiInsightRequestDto;
 import com.indiadecision.platform.dto.AiInsightResponseDto;
 import com.indiadecision.platform.dto.AiOrchestrationRequestDto;
@@ -10,4 +12,5 @@ public interface AiOrchestratorService {
     AiOrchestrationResponseDto orchestrate(AiOrchestrationRequestDto request);
     AiInsightResponseDto generateInsight(AiInsightRequestDto request);
     CarAffordabilityJourneyResponseDto evaluateCarAffordabilityJourney(double monthlyIncome, double carPrice, double downPayment, int tenureYears, double interestRate);
+    AiChatResponseDto processChat(AiChatRequestDto request);
 }

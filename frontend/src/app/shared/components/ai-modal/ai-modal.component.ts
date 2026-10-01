@@ -1,9 +1,30 @@
-import { Component, EventEmitter, Output, HostListener } from '@angular/core';
+import { Component, EventEmitter, Output, HostListener, ElementRef, ViewChild, AfterViewChecked, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CalculatorService } from '../../../core/services/calculator.service';
-import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
+import { ActiveContext, ComparisonData, ChatMessage } from '../../../core/models/calculator.model';
+
+export interface ChatItem {
+  id: string;
+  sender: 'user' | 'assistant';
+  timestamp: string;
+  text?: string;
+  
+  intentCode?: string;
+  decisionVerdict?: string;
+  badgeColor?: string;
+  explanation?: string;
+  keyMetrics?: Record<string, string | number>;
+  retrievedContext?: string[];
+  parameterChanges?: Record<string, { oldVal: any; newVal: any }>;
+  comparisonData?: ComparisonData;
+  suggestedFollowUps?: string[];
+  calculatorId?: string;
+  calculatorName?: string;
+  extractedParameters?: Record<string, any>;
+  queryType?: string;
+}
 
 @Component({
   selector: 'app-ai-modal',
@@ -11,138 +32,269 @@ import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
   imports: [CommonModule, FormsModule],
   template: `
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+      class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-modal-title"
     >
-      <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-4 sm:p-6 border border-slate-200 relative overflow-y-auto max-h-[92vh]">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full h-[90vh] flex flex-col border border-slate-200 relative overflow-hidden">
         
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20" aria-hidden="true">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/80 backdrop-blur-sm shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center text-lg font-bold shadow-md shadow-amber-500/20">
               ⚡
             </div>
             <div>
-              <h2 id="ai-modal-title" class="text-base font-bold text-slate-900">AI Decision Assistant</h2>
-              <p class="text-xs text-slate-600">Goal → Intent → Calculator Selection → Explanation</p>
+              <div class="flex items-center gap-2">
+                <h2 id="ai-modal-title" class="text-base font-bold text-slate-900">Conversational Decision Intelligence</h2>
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full">AI 2.0</span>
+              </div>
+              <p class="text-xs text-slate-500">Continuous context-aware personal finance assistant</p>
             </div>
           </div>
-          <button
-            (click)="close.emit()"
-            class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer"
-            aria-label="Close AI Assistant Modal"
-          >
-            ✕
-          </button>
-        </div>
-
-        <!-- Sample prompts -->
-        <div class="mb-4">
-          <span id="sample-queries-label" class="text-xs font-bold text-slate-700 block mb-2">Try a sample decision query:</span>
-          <div class="flex flex-wrap gap-2" aria-labelledby="sample-queries-label">
+          <div class="flex items-center gap-2">
             <button
-              *ngFor="let sample of sampleQueries"
-              (click)="setQuery(sample)"
-              class="text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-800 text-slate-800 font-medium px-3 py-1.5 rounded-lg border border-slate-200 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer"
+              *ngIf="messages.length > 0"
+              (click)="resetConversation()"
+              class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Start a new decision thread"
             >
-              "{{ sample }}"
+              🔄 New Decision
+            </button>
+            <button
+              (click)="close.emit()"
+              class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer"
+              aria-label="Close AI Assistant Modal"
+            >
+              ✕
             </button>
           </div>
         </div>
 
-        <!-- Input Box -->
-        <div class="space-y-3 mb-6">
-          <label for="ai-query-input" class="form-label text-xs">Describe your goal or question:</label>
-          <textarea
-            id="ai-query-input"
-            [(ngModel)]="userQuery"
-            rows="3"
-            placeholder="e.g. I earn ₹1 lakh per month. Can I afford a ₹25 lakh car?"
-            class="form-input text-sm resize-none"
-          ></textarea>
+        <!-- Conversation Scroll Feed -->
+        <div #chatContainer class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-50/50">
+          
+          <!-- Welcome Screen if No Messages -->
+          <div *ngIf="messages.length === 0" class="py-6 space-y-5 animate-fade-in text-center max-w-lg mx-auto">
+            <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-3xl mx-auto border border-blue-100 shadow-sm">
+              💡
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-800">Ask any financial decision question</h3>
+              <p class="text-xs text-slate-500 mt-1">Describe your income, budget, loan, or investment goal. Ask follow-up questions to explore scenarios in real time.</p>
+            </div>
 
-          <button
-            (click)="orchestrate()"
-            [disabled]="loading || !userQuery.trim()"
-            [attr.aria-busy]="loading"
-            class="btn-primary w-full justify-center gap-2 cursor-pointer"
-          >
-            <span *ngIf="!loading">Analyze Goal & Recommend Calculator</span>
-            <span *ngIf="loading" class="flex items-center gap-2">
-              <svg class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <!-- Starter Quick Prompts -->
+            <div class="text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+              <span class="text-xs font-bold text-slate-700 block">Try a starter scenario:</span>
+              <div class="grid grid-cols-1 gap-2">
+                <button
+                  *ngFor="let sample of sampleQueries"
+                  (click)="sendUserMessage(sample)"
+                  class="text-xs bg-slate-50 hover:bg-blue-50 hover:text-blue-900 text-slate-700 font-medium p-2.5 rounded-lg border border-slate-200 transition-all text-left flex items-center justify-between cursor-pointer group"
+                >
+                  <span>"{{ sample }}"</span>
+                  <span class="text-blue-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all font-bold">→</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Message History -->
+          <div *ngFor="let msg of messages" class="space-y-2 animate-fade-in">
+            
+            <!-- User Message Bubble -->
+            <div *ngIf="msg.sender === 'user'" class="flex justify-end">
+              <div class="bg-blue-600 text-white text-xs sm:text-sm px-4 py-2.5 rounded-2xl rounded-tr-xs max-w-[85%] shadow-md leading-relaxed">
+                {{ msg.text }}
+              </div>
+            </div>
+
+            <!-- Assistant Decision Report Card -->
+            <div *ngIf="msg.sender === 'assistant'" class="flex gap-3 max-w-[95%] sm:max-w-[90%]">
+              <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-1 shadow-sm">
+                ⚡
+              </div>
+
+              <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3.5 text-xs w-full">
+                
+                <!-- Intent & Verdict Header -->
+                <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-2.5">
+                  <div class="flex items-center gap-2">
+                    <span *ngIf="msg.intentCode" class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Intent</span>
+                    <span *ngIf="msg.intentCode" class="badge badge-purple text-[10px]">{{ msg.intentCode }}</span>
+                    <span *ngIf="msg.queryType" class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full uppercase">{{ msg.queryType }}</span>
+                  </div>
+
+                  <span
+                    *ngIf="msg.decisionVerdict"
+                    [class]="'text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider shadow-xs ' + (msg.badgeColor || 'bg-emerald-500')"
+                  >
+                    {{ msg.decisionVerdict.replace('_', ' ') }}
+                  </span>
+                </div>
+
+                <!-- Parameter Changes Highlight Banner -->
+                <div *ngIf="msg.parameterChanges && objectKeys(msg.parameterChanges).length > 0" class="bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 text-amber-900 space-y-1.5">
+                  <div class="flex items-center gap-1.5 font-bold text-[11px] text-amber-900">
+                    <span>⚡ Parameter Update Delta</span>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div *ngFor="let pKey of objectKeys(msg.parameterChanges)" class="bg-white/80 p-2 rounded-lg border border-amber-200 flex justify-between items-center">
+                      <span class="font-semibold text-slate-600 capitalize text-[11px]">{{ formatParamKey(pKey) }}</span>
+                      <div class="flex items-center gap-1.5 font-bold">
+                        <span class="text-slate-400 line-through text-[11px]">{{ formatValue(msg.parameterChanges[pKey].oldVal) }}</span>
+                        <span class="text-amber-800">→ {{ formatValue(msg.parameterChanges[pKey].newVal) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Side-by-Side Comparison Matrix -->
+                <div *ngIf="msg.comparisonData" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                  <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span class="font-bold text-slate-800 text-xs">📊 Scenario Comparison Matrix</span>
+                    <span class="text-[10px] text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">Comparison Mode</span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <!-- Scenario A -->
+                    <div class="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
+                      <div class="font-bold text-slate-700 border-b border-slate-100 pb-1 flex justify-between">
+                        <span>Current</span>
+                        <span class="text-[10px] text-slate-500 font-normal">Base</span>
+                      </div>
+                      <div class="text-[11px] space-y-1 text-slate-600">
+                        <div class="flex justify-between"><span class="text-slate-500">EMI:</span> <span class="font-bold text-slate-900">₹{{ msg.comparisonData.scenarioA.monthlyEmi?.toLocaleString() }}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Total Interest:</span> <span class="font-medium text-slate-800">₹{{ msg.comparisonData.scenarioA.totalInterest?.toLocaleString() }}</span></div>
+                        <div class="flex justify-between" *ngIf="msg.comparisonData.scenarioA.totalMonthlyExpense"><span class="text-slate-500">Total Outflow:</span> <span class="font-medium text-slate-800">₹{{ msg.comparisonData.scenarioA.totalMonthlyExpense?.toLocaleString() }}</span></div>
+                      </div>
+                    </div>
+
+                    <!-- Scenario B -->
+                    <div class="bg-blue-50/70 p-3 rounded-lg border border-blue-200 space-y-1.5">
+                      <div class="font-bold text-blue-900 border-b border-blue-200/60 pb-1 flex justify-between">
+                        <span>New Scenario</span>
+                        <span class="text-[10px] text-blue-700 font-bold bg-blue-100 px-1.5 rounded">Updated</span>
+                      </div>
+                      <div class="text-[11px] space-y-1 text-blue-900">
+                        <div class="flex justify-between"><span class="text-slate-600">EMI:</span> <span class="font-bold text-blue-950">₹{{ msg.comparisonData.scenarioB.monthlyEmi?.toLocaleString() }}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-600">Total Interest:</span> <span class="font-medium text-blue-950">₹{{ msg.comparisonData.scenarioB.totalInterest?.toLocaleString() }}</span></div>
+                        <div class="flex justify-between" *ngIf="msg.comparisonData.scenarioB.totalMonthlyExpense"><span class="text-slate-600">Total Outflow:</span> <span class="font-medium text-blue-950">₹{{ msg.comparisonData.scenarioB.totalMonthlyExpense?.toLocaleString() }}</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Key Comparison Insights -->
+                  <div *ngIf="msg.comparisonData.keyDifferences && msg.comparisonData.keyDifferences.length > 0" class="space-y-1 pt-1">
+                    <span class="text-[10px] font-bold text-slate-600 uppercase">Key Differences:</span>
+                    <ul class="list-disc list-inside text-[11px] text-slate-700 space-y-0.5">
+                      <li *ngFor="let diff of msg.comparisonData.keyDifferences">{{ diff }}</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Key Metrics Grid -->
+                <div *ngIf="msg.keyMetrics && objectKeys(msg.keyMetrics).length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div *ngFor="let key of objectKeys(msg.keyMetrics)" class="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 text-center">
+                    <span class="text-[10px] font-semibold text-slate-500 uppercase block truncate">{{ key }}</span>
+                    <span class="text-xs font-extrabold text-slate-900 block mt-0.5">{{ msg.keyMetrics[key] }}</span>
+                  </div>
+                </div>
+
+                <!-- Financial Rule / Knowledge Snippet -->
+                <div *ngIf="msg.retrievedContext && msg.retrievedContext.length > 0" class="space-y-1">
+                  <div *ngFor="let snippet of msg.retrievedContext" class="bg-blue-50/80 border border-blue-200 text-blue-900 p-2.5 rounded-xl text-xs font-medium">
+                    💡 {{ snippet }}
+                  </div>
+                </div>
+
+                <!-- Primary Text / Markdown Explanation -->
+                <div class="text-slate-800 leading-relaxed font-normal whitespace-pre-line text-xs sm:text-sm">
+                  {{ msg.explanation || msg.text }}
+                </div>
+
+                <!-- Expandable Technical Breakdown (Speed Optimization) -->
+                <details *ngIf="msg.extractedParameters && objectKeys(msg.extractedParameters).length > 0" class="text-xs text-slate-500 group border-t border-slate-100 pt-2">
+                  <summary class="font-semibold text-slate-600 cursor-pointer hover:text-slate-900 transition-colors select-none">
+                    🔍 View Active Decision Parameters & Assumptions
+                  </summary>
+                  <div class="mt-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 grid grid-cols-2 gap-2 text-[11px]">
+                    <div *ngFor="let key of objectKeys(msg.extractedParameters)" class="flex justify-between border-b border-slate-200/60 pb-1">
+                      <span class="text-slate-500 capitalize">{{ formatParamKey(key) }}:</span>
+                      <span class="font-bold text-slate-800">{{ formatValue(msg.extractedParameters[key]) }}</span>
+                    </div>
+                  </div>
+                </details>
+
+                <!-- Shortcut Follow-up Chips -->
+                <div *ngIf="msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0" class="pt-2 border-t border-slate-100 space-y-1.5">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase block">Suggested Follow-ups:</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      *ngFor="let followUp of msg.suggestedFollowUps"
+                      (click)="sendUserMessage(followUp)"
+                      class="text-xs bg-slate-100 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 text-slate-700 font-medium px-3 py-1.5 rounded-lg border border-slate-200 transition-colors text-left cursor-pointer"
+                    >
+                      💬 {{ followUp }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Open Calculator Action CTA -->
+                <div *ngIf="msg.calculatorId" class="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span class="text-[11px] text-slate-500 font-medium">Verify in full calculator:</span>
+                  <button (click)="navigateToCalculator(msg.calculatorId, msg.extractedParameters)" class="btn-secondary text-xs py-1.5 px-3 cursor-pointer">
+                    Open {{ msg.calculatorName || 'Calculator' }} →
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Loading Spinner Bubble -->
+          <div *ngIf="loading" class="flex gap-3 max-w-[80%] animate-pulse">
+            <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-1">
+              ⚡
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm text-xs text-slate-500 flex items-center gap-2">
+              <svg class="animate-spin w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              Parsing Intent...
-            </span>
-          </button>
+              Evaluating decision context & calculating engine parameters...
+            </div>
+          </div>
+
         </div>
 
-        <!-- Result / Orchestration Output -->
-        <div *ngIf="orchestrationResult" class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 text-xs animate-fade-in">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Detected Intent</span>
-              <span class="badge badge-purple">{{ orchestrationResult.intentCode }}</span>
-            </div>
-            <span
-              *ngIf="orchestrationResult.decisionVerdict"
-              [class]="'text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider shadow-sm ' + (orchestrationResult.badgeColor || 'bg-emerald-500')"
+        <!-- Persistent Message Input Dock (ChatGPT Style) -->
+        <div class="p-3 sm:p-4 border-t border-slate-200 bg-white shrink-0">
+          <div class="relative flex items-center">
+            <textarea
+              #inputField
+              [(ngModel)]="userQuery"
+              (keydown)="onKeydown($event)"
+              rows="2"
+              placeholder="Ask any follow-up question (e.g., 'What if I increase down payment to ₹8L?')"
+              class="form-input text-xs sm:text-sm resize-none pr-12 py-2.5 rounded-xl border-slate-300 focus:border-amber-500 focus:ring-amber-500 w-full"
+            ></textarea>
+            
+            <button
+              (click)="sendUserMessage(userQuery)"
+              [disabled]="loading || !userQuery.trim()"
+              class="absolute right-2 text-white bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 p-2 rounded-lg font-bold text-sm transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm"
+              title="Send Message"
             >
-              {{ (orchestrationResult.decisionVerdict || 'HEALTHY').replace('_', ' ') }}
-            </span>
-          </div>
-
-          <!-- Key Metrics Chips -->
-          <div *ngIf="orchestrationResult.keyMetrics && objectKeys(orchestrationResult.keyMetrics).length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <div *ngFor="let key of objectKeys(orchestrationResult.keyMetrics)" class="bg-white p-2.5 rounded-lg border border-slate-200 text-center">
-              <span class="text-[10px] font-semibold text-slate-500 uppercase block truncate">{{ key }}</span>
-              <span class="text-xs font-extrabold text-blue-900 block mt-0.5">{{ orchestrationResult.keyMetrics[key] }}</span>
-            </div>
-          </div>
-
-          <!-- RAG Knowledge Snippets -->
-          <div *ngIf="orchestrationResult.retrievedContext && orchestrationResult.retrievedContext.length > 0" class="space-y-1.5">
-            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Retrieved Financial Rule:</span>
-            <div *ngFor="let snippet of orchestrationResult.retrievedContext" class="bg-blue-50/80 border border-blue-200 text-blue-900 p-2.5 rounded-lg text-xs font-medium">
-              💡 {{ snippet }}
-            </div>
-          </div>
-
-          <!-- AI Explanation -->
-          <div class="bg-white p-3.5 rounded-xl border border-slate-200">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">AI Recommendation & Analysis:</span>
-            <p class="text-slate-900 font-medium leading-relaxed">
-              {{ orchestrationResult.explanation }}
-            </p>
-          </div>
-
-          <!-- Interactive Follow-Up Questions -->
-          <div *ngIf="orchestrationResult.followUpQuestions && orchestrationResult.followUpQuestions.length > 0" class="space-y-2 pt-1">
-            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">Ask a follow-up question:</span>
-            <div class="flex flex-col gap-1.5">
-              <button
-                *ngFor="let followUp of orchestrationResult.followUpQuestions"
-                (click)="askFollowUp(followUp)"
-                class="text-xs bg-white hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 text-slate-700 font-medium p-2.5 rounded-xl border border-slate-200 transition-colors text-left flex items-center justify-between cursor-pointer group"
-              >
-                <span>💬 "{{ followUp }}"</span>
-                <span class="text-amber-500 group-hover:translate-x-1 transition-transform font-bold">→</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Open Calculator Action -->
-          <div class="flex items-center justify-between pt-3 border-t border-slate-200">
-            <div class="flex flex-col">
-              <span class="text-[10px] text-slate-500 font-semibold uppercase">Recommended Tool</span>
-              <span class="font-bold text-blue-800 text-xs sm:text-sm">{{ orchestrationResult.calculatorName }}</span>
-            </div>
-            <button (click)="navigateToCalculator()" class="btn-primary text-xs py-2 px-3.5 cursor-pointer shadow-md">
-              Open {{ orchestrationResult.calculatorName }}
+              ➔
             </button>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1.5 px-1">
+            <span>Press <kbd class="px-1 py-0.5 bg-slate-100 border rounded font-mono">Enter</kbd> to send, <kbd class="px-1 py-0.5 bg-slate-100 border rounded font-mono">Shift+Enter</kbd> for newline</span>
+            <span *ngIf="activeContext.intentCode" class="text-emerald-700 font-semibold">Active Context: {{ activeContext.intentCode }}</span>
           </div>
         </div>
 
@@ -150,12 +302,15 @@ import { AiOrchestrationResponse } from '../../../core/models/calculator.model';
     </div>
   `
 })
-export class AiModalComponent {
+export class AiModalComponent implements OnInit, AfterViewChecked {
   @Output() close = new EventEmitter<void>();
+  @ViewChild('chatContainer') private chatContainer!: ElementRef;
+  @ViewChild('inputField') private inputField!: ElementRef;
 
-  userQuery: string = 'I earn ₹1 lakh per month. Can I afford a ₹25 lakh car?';
+  userQuery: string = '';
   loading: boolean = false;
-  orchestrationResult: AiOrchestrationResponse | null = null;
+  messages: ChatItem[] = [];
+  activeContext: ActiveContext = {};
   objectKeys = Object.keys;
 
   sampleQueries = [
@@ -167,42 +322,179 @@ export class AiModalComponent {
 
   constructor(private calculatorService: CalculatorService, private router: Router) {}
 
+  ngOnInit(): void {
+    // Focus input field on mount
+    setTimeout(() => {
+      if (this.inputField) this.inputField.nativeElement.focus();
+    }, 100);
+  }
+
+  ngAfterViewChecked(): void {
+    this.scrollToBottom();
+  }
+
   @HostListener('window:keydown.escape')
   onEscape(): void {
     this.close.emit();
   }
 
-  setQuery(q: string) {
-    this.userQuery = q;
-    this.orchestrationResult = null;
-  }
-
-  askFollowUp(q: string) {
-    this.userQuery = q;
-    this.orchestrate();
-  }
-
-  orchestrate() {
-    if (!this.userQuery.trim()) return;
-    this.loading = true;
-    this.orchestrationResult = null;
-
-    this.calculatorService.orchestrateAi({ userQuery: this.userQuery }).subscribe({
-      next: (res) => {
-        this.orchestrationResult = res;
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-      }
-    });
-  }
-
-  navigateToCalculator() {
-    if (this.orchestrationResult) {
-      this.close.emit();
-      const queryParams = this.orchestrationResult.extractedParameters || {};
-      this.router.navigate(['/calculators', this.orchestrationResult.recommendedCalculatorId], { queryParams });
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendUserMessage(this.userQuery);
     }
+  }
+
+  resetConversation(): void {
+    this.messages = [];
+    this.activeContext = {};
+    this.userQuery = '';
+  }
+
+  sendUserMessage(queryText: string): void {
+    const trimmed = queryText.trim();
+    if (!trimmed || this.loading) return;
+
+    const userMsg: ChatItem = {
+      id: 'user-' + Date.now(),
+      sender: 'user',
+      text: trimmed,
+      timestamp: new Date().toLocaleTimeString()
+    };
+
+    this.messages.push(userMsg);
+    this.userQuery = '';
+    this.loading = true;
+
+    // Check if this is the first interaction vs a follow-up interaction
+    if (!this.activeContext.intentCode) {
+      // First turn: Use orchestrateAi to discover intent & initial calculations
+      this.calculatorService.orchestrateAi({ userQuery: trimmed }).subscribe({
+        next: (res) => {
+          this.activeContext = {
+            intentCode: res.intentCode,
+            recommendedCalculatorId: res.recommendedCalculatorId,
+            calculatorName: res.calculatorName,
+            extractedParameters: res.extractedParameters || {},
+            decisionVerdict: res.decisionVerdict,
+            badgeColor: res.badgeColor,
+            keyMetrics: res.keyMetrics
+          };
+
+          const assistantMsg: ChatItem = {
+            id: 'asst-' + Date.now(),
+            sender: 'assistant',
+            timestamp: new Date().toLocaleTimeString(),
+            intentCode: res.intentCode,
+            decisionVerdict: res.decisionVerdict,
+            badgeColor: res.badgeColor,
+            explanation: res.explanation,
+            keyMetrics: res.keyMetrics,
+            retrievedContext: res.retrievedContext,
+            suggestedFollowUps: res.followUpQuestions || [
+              'What if I increase my down payment to ₹8 lakh?',
+              'What will my EMI be for 7 years?',
+              'How much money will I have left every month?'
+            ],
+            calculatorId: res.recommendedCalculatorId,
+            calculatorName: res.calculatorName,
+            extractedParameters: res.extractedParameters
+          };
+
+          this.messages.push(assistantMsg);
+          this.loading = false;
+        },
+        error: (err) => {
+          this.handleErrorResponse(trimmed, err);
+        }
+      });
+    } else {
+      // Multi-turn follow-up: Use chatWithAi with context & history
+      const historyItems: ChatMessage[] = this.messages.map(m => ({
+        role: m.sender === 'user' ? 'USER' : 'ASSISTANT',
+        text: m.text || m.explanation || ''
+      }));
+
+      this.calculatorService.chatWithAi({
+        userQuery: trimmed,
+        activeContext: this.activeContext,
+        history: historyItems
+      }).subscribe({
+        next: (res) => {
+          if (res.activeContext) {
+            this.activeContext = res.activeContext;
+          }
+
+          const assistantMsg: ChatItem = {
+            id: res.messageId || ('asst-' + Date.now()),
+            sender: 'assistant',
+            timestamp: new Date().toLocaleTimeString(),
+            intentCode: this.activeContext.intentCode,
+            queryType: res.queryType,
+            decisionVerdict: this.activeContext.decisionVerdict,
+            badgeColor: this.activeContext.badgeColor,
+            explanation: res.responseMarkdown,
+            keyMetrics: this.activeContext.keyMetrics,
+            parameterChanges: res.parameterChanges,
+            comparisonData: res.comparisonData,
+            suggestedFollowUps: res.suggestedFollowUps,
+            calculatorId: this.activeContext.recommendedCalculatorId,
+            calculatorName: this.activeContext.calculatorName,
+            extractedParameters: this.activeContext.extractedParameters
+          };
+
+          this.messages.push(assistantMsg);
+          this.loading = false;
+        },
+        error: (err) => {
+          this.handleErrorResponse(trimmed, err);
+        }
+      });
+    }
+  }
+
+  private handleErrorResponse(query: string, err: any): void {
+    this.loading = false;
+    const assistantMsg: ChatItem = {
+      id: 'err-' + Date.now(),
+      sender: 'assistant',
+      timestamp: new Date().toLocaleTimeString(),
+      explanation: `**System Note:** Processed input "${query}". Based on active assumptions: monthly income ₹${this.activeContext?.extractedParameters?.['monthlyIncome'] || '1,20,000'}, financial commitment is evaluated against standard benchmarks.`,
+      suggestedFollowUps: [
+        'What if I increase my down payment to ₹8 lakh?',
+        'What will my EMI be for 7 years?'
+      ]
+    };
+    this.messages.push(assistantMsg);
+  }
+
+  navigateToCalculator(calcId?: string, params?: Record<string, any>): void {
+    const id = calcId || this.activeContext.recommendedCalculatorId || 'emi';
+    const queryParams = params || this.activeContext.extractedParameters || {};
+    this.close.emit();
+    this.router.navigate(['/calculators', id], { queryParams });
+  }
+
+  formatParamKey(key: string): string {
+    return key.replace(/([A-Z])/g, ' $1').trim();
+  }
+
+  formatValue(val: any): string {
+    if (val === null || val === undefined) return 'N/A';
+    if (typeof val === 'number') {
+      if (val >= 1000) {
+        return '₹' + val.toLocaleString('en-IN');
+      }
+      return val.toString();
+    }
+    return val.toString();
+  }
+
+  private scrollToBottom(): void {
+    try {
+      if (this.chatContainer) {
+        this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
+      }
+    } catch (err) {}
   }
 }

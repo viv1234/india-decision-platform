@@ -17,6 +17,9 @@ export default {
     if (url.pathname === '/api/ai/orchestrate' && request.method === 'POST') {
       return handleOrchestrate(request, env);
     }
+    if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
+      return handleChat(request, env);
+    }
     if (url.pathname === '/api/ai/insight' && request.method === 'POST') {
       return handleInsight(request, env);
     }
@@ -92,6 +95,106 @@ async function handleOrchestrate(request, env) {
       badgeColor: synthesis.badgeColor,
       followUpQuestions: synthesis.followUpQuestions,
       keyMetrics: synthesis.keyMetrics
+    });
+  } catch (err) {
+    return jsonResponse({ error: err.message }, 500, false);
+  }
+}
+
+async function handleChat(request, env) {
+  try {
+    const body = await request.json();
+    const query = (body.userQuery || "").trim();
+    const convId = body.conversationId || "conv_" + Date.now();
+    const activeContext = body.activeContext || {};
+    const apiKey = env.ANTHROPIC_API_KEY || env.AI_API_KEY || "";
+
+    const currentParams = Object.assign({}, activeContext.extractedParameters || {});
+    const lower = query.toLowerCase();
+
+    const extracted = extractParametersFromQuery(query);
+    const ragContext = retrieveRagContext(query);
+
+    let changesSummary = null;
+    let comparisonData = null;
+
+    if (lower.includes("compare") || lower.includes("versus") || lower.includes("vs")) {
+      const carA = currentParams.carPrice || 2500000;
+      const carB = extracted.params.carPrice || 2000000;
+      const loanA = carA * 0.8;
+      const loanB = carB * 0.8;
+      const r = (8.5 / 12 / 100);
+      const emiA = Math.round((loanA * r * Math.pow(1 + r, 60)) / (Math.pow(1 + r, 60) - 1));
+      const emiB = Math.round((loanB * r * Math.pow(1 + r, 60)) / (Math.pow(1 + r, 60) - 1));
+
+      comparisonData = {
+        title: "📊 Scenario Comparison Matrix",
+        scenarioA: { name: `Option A (₹${(carA/100000).toFixed(1)}L)`, metrics: { "Car Price": `₹${carA.toLocaleString("en-IN")}`, "Monthly EMI": `₹${emiA.toLocaleString("en-IN")}` } },
+        scenarioB: { name: `Option B (₹${(carB/100000).toFixed(1)}L)`, metrics: { "Car Price": `₹${carB.toLocaleString("en-IN")}`, "Monthly EMI": `₹${emiB.toLocaleString("en-IN")}` } },
+        comparisonHighlights: [
+          `Option B reduces monthly EMI by ₹${(emiA - emiB).toLocaleString("en-IN")}/month.`,
+          `Option B saves ₹${Math.round((emiA - emiB) * 60).toLocaleString("en-IN")} in total repayment over 5 years.`,
+          "Recommendation: Option B maintains a significantly safer cash flow buffer."
+        ]
+      };
+    } else if (Object.keys(extracted.params).length > 0) {
+      const changeParts = [];
+      for (const [key, val] of Object.entries(extracted.params)) {
+        const oldVal = currentParams[key];
+        if (oldVal !== undefined && oldVal !== val) {
+          changeParts.push(`${key} changed from ${oldVal} to ${val}`);
+        } else {
+          changeParts.push(`${key} set to ${val}`);
+        }
+        currentParams[key] = val;
+      }
+      changesSummary = "⚡ Parameter Updated: " + changeParts.join(", ");
+    }
+
+    const intentCode = extracted.intentCode !== "GENERAL_QUERY" ? extracted.intentCode : (activeContext.intentCode || "CAR_AFFORDABILITY");
+    const synth = buildDecisionSynthesis(intentCode, currentParams);
+
+    let explanation = "";
+    if (apiKey && apiKey.length > 10) {
+      try {
+        const promptText = `Query: ${query}\nActive Parameters: ${JSON.stringify(currentParams)}\nContext: ${ragContext.join("\n")}`;
+        explanation = await callAnthropicApi(query, promptText, apiKey);
+      } catch (e) {}
+    }
+
+    if (!explanation) {
+      explanation = synth.defaultExplanation;
+    }
+
+    const message = {
+      id: "msg_" + Date.now(),
+      sender: "assistant",
+      timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      text: explanation,
+      intentCode: intentCode,
+      recommendedCalculatorId: extracted.recommendedCalculatorId || activeContext.recommendedCalculatorId || "emi",
+      calculatorName: extracted.calculatorName || "EMI Calculator",
+      decisionVerdict: synth.verdict,
+      badgeColor: synth.badgeColor,
+      changesSummary: changesSummary,
+      comparisonData: comparisonData,
+      keyMetrics: synth.keyMetrics,
+      extractedParameters: currentParams,
+      followUpQuestions: synth.followUpQuestions,
+      retrievedContext: ragContext
+    };
+
+    const updatedContext = {
+      intentCode: intentCode,
+      recommendedCalculatorId: message.recommendedCalculatorId,
+      extractedParameters: currentParams,
+      lastCalculationResult: null
+    };
+
+    return jsonResponse({
+      conversationId: convId,
+      message: message,
+      updatedContext: updatedContext
     });
   } catch (err) {
     return jsonResponse({ error: err.message }, 500, false);
