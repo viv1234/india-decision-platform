@@ -32,10 +32,12 @@ public class AiApiClient {
                 .map(d -> String.format("[%s | %s]: %s", d.getTitle(), d.getSourceRule(), d.getContent()))
                 .collect(Collectors.joining("\n"));
 
+        String activeKey = getEffectiveApiKey();
+
         // If a valid Anthropic / LLM API key is present, execute live HTTP API request
-        if (apiKey != null && apiKey.startsWith("sk-ant-")) {
+        if (activeKey != null && activeKey.length() > 10) {
             try {
-                String liveResponse = callAnthropicApi(userQuery, contextText, recommendedCalculatorName);
+                String liveResponse = callAnthropicApi(userQuery, contextText, recommendedCalculatorName, activeKey);
                 if (liveResponse != null && !liveResponse.isBlank()) {
                     return liveResponse;
                 }
@@ -59,7 +61,22 @@ public class AiApiClient {
         return ragSynthesis.toString();
     }
 
-    private String callAnthropicApi(String userQuery, String contextText, String calculatorName) throws Exception {
+    private String getEffectiveApiKey() {
+        if (apiKey != null && !apiKey.isBlank() && !apiKey.equals("demo-key")) {
+            return apiKey.trim();
+        }
+        String envKey = System.getenv("ANTHROPIC_API_KEY");
+        if (envKey != null && !envKey.isBlank()) {
+            return envKey.trim();
+        }
+        String aiEnvKey = System.getenv("AI_API_KEY");
+        if (aiEnvKey != null && !aiEnvKey.isBlank()) {
+            return aiEnvKey.trim();
+        }
+        return null;
+    }
+
+    private String callAnthropicApi(String userQuery, String contextText, String calculatorName, String keyToUse) throws Exception {
         String systemPrompt = "You are BharatDecision AI Assistant, an expert Indian personal finance and decision advisor. Provide concise, clear advice (2-3 sentences max) based on the retrieved context guidelines and recommend using the specified calculator.";
         
         String userContent = String.format("User Query: %s\n\nRetrieved Guidelines Context:\n%s\n\nRecommended Tool: %s",
@@ -81,7 +98,7 @@ public class AiApiClient {
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.anthropic.com/v1/messages"))
-                .header("x-api-key", apiKey.trim())
+                .header("x-api-key", keyToUse.trim())
                 .header("anthropic-version", "2023-06-01")
                 .header("content-type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
