@@ -12,9 +12,9 @@
     --color-danger: #dc2626;
     --color-bg-light: #f8fafc;
     --color-surface: #ffffff;
-    --color-border: #e2e8f0;
+    --color-border: #cbd5e1;
     --color-text-main: #0f172a;
-    --color-text-muted: #64748b;
+    --color-text-muted: #475569;
   }
 
   html, body {
@@ -31,6 +31,12 @@
     max-width: 100%;
     height: auto;
   }
+
+  /* Global Keyboard Accessibility Focus Indicator (WCAG 2.2 AA) */
+  :focus-visible {
+    outline: 3px solid #2563eb !important;
+    outline-offset: 2px !important;
+  }
 }
 
 /* Prevent auto-zoom on iOS Safari when tapping inputs */
@@ -44,7 +50,7 @@
   }
 }
 
-/* Design System Utilities with Mobile Touch Target Optimization */
+/* Design System Utilities with Mobile Touch Target & High Contrast Optimization */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -76,9 +82,9 @@
   padding: 0.75rem 1.5rem;
   font-weight: 600;
   font-size: 0.95rem;
-  color: #1e293b;
+  color: #0f172a;
   background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1.5px solid #94a3b8;
   border-radius: 0.5rem;
   transition: all 0.2s ease-in-out;
   cursor: pointer;
@@ -87,7 +93,7 @@
 
 .btn-secondary:hover {
   background-color: #f1f5f9;
-  border-color: #94a3b8;
+  border-color: #475569;
 }
 
 .btn-outline {
@@ -100,7 +106,7 @@
   font-size: 0.875rem;
   color: #1e40af;
   background-color: transparent;
-  border: 1.5px solid #3b82f6;
+  border: 1.5px solid #2563eb;
   border-radius: 0.5rem;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -114,22 +120,22 @@
 
 .card-saas {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
   border-radius: 1rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
 }
 
 .card-saas:hover {
-  border-color: #cbd5e1;
+  border-color: #94a3b8;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
 }
 
 .form-label {
   display: block;
   font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
+  font-weight: 700;
+  color: #1e293b;
   margin-bottom: 0.375rem;
 }
 
@@ -140,20 +146,20 @@
   font-size: 0.95rem;
   color: #0f172a;
   background-color: #ffffff;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid #94a3b8;
   border-radius: 0.5rem;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.2);
 }
 
 .form-input.is-invalid {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.2);
 }
 
 .badge {
@@ -198,8 +204,8 @@
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #64748b;
-  font-weight: 600;
+  color: #475569;
+  font-weight: 700;
 }
 
 .input-with-rupee {
@@ -217,6 +223,6 @@
 }
 
 .overflow-x-auto::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: #94a3b8;
   border-radius: 4px;
 }

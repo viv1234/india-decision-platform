@@ -66,15 +66,15 @@ import { CalculatorMetadata } from '../../core/models/calculator.model';
       </section>
 
       <!-- POPULAR CALCULATORS SECTION -->
-      <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-20 mb-20">
-        <div class="flex items-center justify-between mb-8">
+      <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 relative z-20">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
-            <h2 class="text-2xl font-extrabold text-slate-900">Popular Calculators</h2>
-            <p class="text-sm text-slate-500">Most requested decision tools for everyday life</p>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Popular Calculators</h2>
+            <p class="text-sm font-medium text-slate-600 mt-1">Most requested decision tools for everyday life</p>
           </div>
-          <a routerLink="/dashboard" class="text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+          <a routerLink="/dashboard" class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-700 hover:text-blue-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded">
             <span>View All (10)</span>
-            <span>→</span>
+            <span aria-hidden="true">→</span>
           </a>
         </div>
 

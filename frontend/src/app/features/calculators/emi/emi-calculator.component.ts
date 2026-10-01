@@ -35,49 +35,57 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             
             <!-- Loan Amount -->
             <div>
-              <label class="form-label">Loan Amount (P)</label>
+              <label for="emi-principal" class="form-label">Loan Amount (P)</label>
               <div class="relative">
-                <span class="rupee-prefix">₹</span>
+                <span class="rupee-prefix" aria-hidden="true">₹</span>
                 <input
+                  id="emi-principal"
                   type="number"
                   formControlName="principal"
                   class="form-input input-with-rupee"
                   [ngClass]="{'is-invalid': isFieldInvalid('principal')}"
+                  [attr.aria-invalid]="isFieldInvalid('principal')"
+                  aria-describedby="principal-error"
                   placeholder="2500000"
                 />
               </div>
-              <p *ngIf="isFieldInvalid('principal')" class="text-xs text-red-600 mt-1">Loan amount must be greater than zero.</p>
+              <p *ngIf="isFieldInvalid('principal')" id="principal-error" class="text-xs text-red-700 font-medium mt-1">Loan amount must be greater than zero.</p>
             </div>
 
             <!-- Interest Rate -->
             <div>
-              <label class="form-label">Annual Interest Rate (%)</label>
+              <label for="emi-interest-rate" class="form-label">Annual Interest Rate (%)</label>
               <input
+                id="emi-interest-rate"
                 type="number"
                 step="0.1"
                 formControlName="annualInterestRate"
                 class="form-input"
                 [ngClass]="{'is-invalid': isFieldInvalid('annualInterestRate')}"
+                [attr.aria-invalid]="isFieldInvalid('annualInterestRate')"
+                aria-describedby="rate-error"
                 placeholder="8.5"
               />
-              <p *ngIf="isFieldInvalid('annualInterestRate')" class="text-xs text-red-600 mt-1">Interest rate cannot be negative.</p>
+              <p *ngIf="isFieldInvalid('annualInterestRate')" id="rate-error" class="text-xs text-red-700 font-medium mt-1">Interest rate cannot be negative.</p>
             </div>
 
             <!-- Tenure Value & Unit -->
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="form-label">Tenure</label>
+                <label for="emi-tenure-value" class="form-label">Tenure</label>
                 <input
+                  id="emi-tenure-value"
                   type="number"
                   formControlName="tenureValue"
                   class="form-input"
                   [ngClass]="{'is-invalid': isFieldInvalid('tenureValue')}"
+                  [attr.aria-invalid]="isFieldInvalid('tenureValue')"
                   placeholder="5"
                 />
               </div>
               <div>
-                <label class="form-label">Unit</label>
-                <select formControlName="tenureUnit" class="form-input bg-white">
+                <label for="emi-tenure-unit" class="form-label">Unit</label>
+                <select id="emi-tenure-unit" formControlName="tenureUnit" class="form-input bg-white">
                   <option value="YEARS">Years</option>
                   <option value="MONTHS">Months</option>
                 </select>
@@ -85,7 +93,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <!-- Action Buttons -->
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+            <button type="submit" [disabled]="loading" [attr.aria-busy]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4 cursor-pointer">
               <span *ngIf="!loading">Calculate EMI</span>
               <span *ngIf="loading" class="flex items-center gap-2">Calculating...</span>
             </button>
