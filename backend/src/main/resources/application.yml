@@ -30,7 +30,7 @@ spring:
 
 ai:
   api:
-    key: ${AI_API_KEY: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}
+    key: ${AI_API_KEY:${ANTHROPIC_API_KEY:}}
     provider: anthropic
     model: claude-3-haiku-20240307
 
