@@ -8,6 +8,6 @@
   },
   "assets": {
     "directory": "./frontend/dist/frontend/browser",
-    "not_found_handling": "single-page-app"
+    "not_found_handling": "single-page-application"
   }
 }
