@@ -7,6 +7,7 @@
     "command": "npm install && npm run build"
   },
   "assets": {
-    "directory": "./dist/frontend/browser"
+    "directory": "./dist/frontend/browser",
+    "not_found_handling": "single-page-app"
   }
 }
