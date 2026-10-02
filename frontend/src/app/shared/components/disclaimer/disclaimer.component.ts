@@ -1,10 +1,11 @@
-import { Component, Input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-disclaimer-notice',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-xs text-amber-900 my-6">
       <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -12,12 +13,16 @@ import { CommonModule } from '@angular/common';
       </svg>
       <div class="leading-relaxed">
         <span class="font-bold block mb-0.5">Disclaimer & Advisory Notice:</span>
-        <p>{{ customText || defaultText }}</p>
+        <p>{{ displayText() }}</p>
       </div>
     </div>
   `
 })
 export class DisclaimerNoticeComponent {
-  @Input() customText: string = '';
-  defaultText: string = 'Calculations provided by this platform are for informational and educational purposes only. Results may vary based on actual interest rates, taxation rules, employer salary structure and individual financial conditions. Please verify with official financial advisors before making commitments.';
+  customText = input<string>('');
+  
+  defaultText = 'Calculations provided by this platform are for informational and educational purposes only. Results may vary based on actual interest rates, taxation rules, employer salary structure and individual financial conditions. Please verify with official financial advisors before making commitments.';
+  
+  displayText = computed(() => this.customText() || this.defaultText);
 }
+
