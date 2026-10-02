@@ -7,7 +7,10 @@
 
   <app-footer></app-footer>
 
-  @if (showAiModal()) {
-    <app-ai-modal (close)="showAiModal.set(false)"></app-ai-modal>
+  @defer (when showAiModal()) {
+    @if (showAiModal()) {
+      <app-ai-modal (close)="showAiModal.set(false)"></app-ai-modal>
+    }
   }
 </div>
+

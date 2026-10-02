@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
@@ -52,7 +52,7 @@ export class CalculatorService {
     { id: 'rent-affordability', name: 'Rent Affordability', category: 'Loans', description: 'Evaluate rent budget against income, existing EMIs and expense ratio.', icon: 'home', route: '/calculators/rent-affordability', active: true }
   ];
 
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   getCalculators(): Observable<CalculatorMetadata[]> {
     return this.http.get<ApiResponse<CalculatorMetadata[]>>(`${this.baseUrl}/calculators`).pipe(

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -78,65 +78,68 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               </div>
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Evaluate Rent Affordability</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Evaluate Rent Affordability</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
         <div class="lg:col-span-7 space-y-6">
-          <div *ngIf="result" class="space-y-6">
-            
-            <!-- Affordability Status Banner -->
-            <div
-              class="rounded-2xl p-6 text-white shadow-lg flex items-center justify-between"
-              [ngClass]="{
-                'bg-emerald-600 shadow-emerald-600/20': result.affordabilityBadgeColor === 'green',
-                'bg-amber-600 shadow-amber-600/20': result.affordabilityBadgeColor === 'yellow',
-                'bg-red-600 shadow-red-600/20': result.affordabilityBadgeColor === 'red'
-              }"
-            >
-              <div>
-                <span class="text-xs font-bold uppercase tracking-wider opacity-80">Affordability Verdict</span>
-                <div class="text-2xl font-extrabold mt-1">{{ result.affordabilityStatus }}</div>
-                <p class="text-xs text-white/90 mt-2 max-w-md leading-relaxed">{{ result.recommendation }}</p>
+          @if (result(); as res) {
+            <div class="space-y-6">
+              
+              <!-- Affordability Status Banner -->
+              <div
+                class="rounded-2xl p-6 text-white shadow-lg flex items-center justify-between"
+                [class.bg-emerald-600]="res.affordabilityBadgeColor === 'green' || res.affordabilityBadgeColor === 'bg-emerald-500'"
+                [class.bg-amber-600]="res.affordabilityBadgeColor === 'yellow' || res.affordabilityBadgeColor === 'bg-amber-500'"
+                [class.bg-red-600]="res.affordabilityBadgeColor === 'red' || res.affordabilityBadgeColor === 'bg-red-500'"
+              >
+                <div>
+                  <span class="text-xs font-bold uppercase tracking-wider opacity-80">Affordability Verdict</span>
+                  <div class="text-2xl font-extrabold mt-1">{{ res.affordabilityStatus }}</div>
+                  <p class="text-xs text-white/90 mt-2 max-w-md leading-relaxed">{{ res.recommendation }}</p>
+                </div>
+                <div class="text-3xl">
+                  @if (res.affordabilityBadgeColor === 'green' || res.affordabilityBadgeColor === 'bg-emerald-500') { <span>✅</span> }
+                  @else if (res.affordabilityBadgeColor === 'yellow' || res.affordabilityBadgeColor === 'bg-amber-500') { <span>⚠️</span> }
+                  @else { <span>🚨</span> }
+                </div>
               </div>
-              <div class="text-3xl">
-                <span *ngIf="result.affordabilityBadgeColor === 'green'">✅</span>
-                <span *ngIf="result.affordabilityBadgeColor === 'yellow'">⚠️</span>
-                <span *ngIf="result.affordabilityBadgeColor === 'red'">🚨</span>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="card-saas p-4">
+                  <span class="text-xs uppercase font-bold text-slate-500">Rent to Income</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">{{ res.rentToIncomeRatio | number:'1.1-1' }}%</div>
+                </div>
+                <div class="card-saas p-4">
+                  <span class="text-xs uppercase font-bold text-slate-500">Total Expense Ratio</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">{{ res.totalExpenseRatio | number:'1.1-1' }}%</div>
+                </div>
+                <div class="card-saas p-4">
+                  <span class="text-xs uppercase font-bold text-emerald-600">Remaining Savings</span>
+                  <div class="text-xl font-bold text-emerald-600 mt-1">₹{{ res.remainingMonthlyIncome | number:'1.0-0' }}</div>
+                </div>
               </div>
+
+              <app-simple-chart
+                title="Monthly Obligations Budget Distribution"
+                type="bar"
+                [barItems]="[
+                  { label: 'Proposed Rent', displayValue: '₹' + (res.monthlyRent | number:'1.0-0'), percentage: res.rentToIncomeRatio, colorClass: 'bg-blue-600' },
+                  { label: 'Existing Loan EMIs', displayValue: '₹' + (rentForm.get('existingMonthlyEmi')?.value | number:'1.0-0'), percentage: ((rentForm.get('existingMonthlyEmi')?.value || 0) / res.monthlyIncome) * 100, colorClass: 'bg-amber-500' },
+                  { label: 'Remaining Disposable Savings', displayValue: '₹' + (res.remainingMonthlyIncome | number:'1.0-0'), percentage: (res.remainingMonthlyIncome / res.monthlyIncome) * 100, colorClass: 'bg-emerald-500' }
+                ]"
+              ></app-simple-chart>
+
             </div>
+          }
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="card-saas p-4">
-                <span class="text-xs uppercase font-bold text-slate-500">Rent to Income</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">{{ result.rentToIncomeRatio | number:'1.1-1' }}%</div>
-              </div>
-              <div class="card-saas p-4">
-                <span class="text-xs uppercase font-bold text-slate-500">Total Expense Ratio</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">{{ result.totalExpenseRatio | number:'1.1-1' }}%</div>
-              </div>
-              <div class="card-saas p-4">
-                <span class="text-xs uppercase font-bold text-emerald-600">Remaining Savings</span>
-                <div class="text-xl font-bold text-emerald-600 mt-1">₹{{ result.remainingMonthlyIncome | number:'1.0-0' }}</div>
-              </div>
-            </div>
-
-            <app-simple-chart
-              title="Monthly Obligations Budget Distribution"
-              type="bar"
-              [barItems]="[
-                { label: 'Proposed Rent', displayValue: '₹' + (result.monthlyRent | number:'1.0-0'), percentage: result.rentToIncomeRatio, colorClass: 'bg-blue-600' },
-                { label: 'Existing Loan EMIs', displayValue: '₹' + (rentForm.get('existingMonthlyEmi')?.value | number:'1.0-0'), percentage: ((rentForm.get('existingMonthlyEmi')?.value || 0) / result.monthlyIncome) * 100, colorClass: 'bg-amber-500' },
-                { label: 'Remaining Disposable Savings', displayValue: '₹' + (result.remainingMonthlyIncome | number:'1.0-0'), percentage: (result.remainingMonthlyIncome / result.monthlyIncome) * 100, colorClass: 'bg-emerald-500' }
-              ]"
-            ></app-simple-chart>
-
-          </div>
-
-          <app-disclaimer-notice [customText]="result?.disclaimer || 'This is a budgeting indication for financial planning, not legal or financial advice.'"></app-disclaimer-notice>
+          <app-disclaimer-notice [customText]="result()?.disclaimer || 'This is a budgeting indication for financial planning, not legal or financial advice.'"></app-disclaimer-notice>
         </div>
 
       </div>
@@ -144,11 +147,12 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class RentAffordabilityCalculatorComponent implements OnInit {
-  rentForm!: FormGroup;
-  result: RentAffordabilityResponse | null = null;
-  loading: boolean = false;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  rentForm!: FormGroup;
+  readonly result = signal<RentAffordabilityResponse | null>(null);
+  readonly loading = signal<boolean>(false);
 
   ngOnInit(): void {
     this.rentForm = this.fb.group({
@@ -163,16 +167,17 @@ export class RentAffordabilityCalculatorComponent implements OnInit {
 
   calculate(): void {
     if (this.rentForm.invalid) return;
-    this.loading = true;
+    this.loading.set(true);
 
     this.calculatorService.calculateRentAffordability(this.rentForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: () => {
-        this.loading = false;
+        this.loading.set(false);
       }
     });
   }
 }
+

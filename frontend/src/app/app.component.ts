@@ -1,5 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './shared/components/header/header.component';
 import { FooterComponent } from './shared/components/footer/footer.component';
@@ -10,18 +9,16 @@ import { SeoService } from './core/services/seo.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, HeaderComponent, FooterComponent, AiModalComponent],
+  imports: [RouterOutlet, HeaderComponent, FooterComponent, AiModalComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
 export class AppComponent implements OnInit {
   title = 'BharatDecision Platform';
-  showAiModal = signal<boolean>(false);
+  readonly showAiModal = signal<boolean>(false);
 
-  constructor(
-    private analyticsService: AnalyticsService,
-    private seoService: SeoService
-  ) {}
+  private analyticsService = inject(AnalyticsService);
+  private seoService = inject(SeoService);
 
   ngOnInit(): void {
     // Initialize GA4 tracking
@@ -35,3 +32,4 @@ export class AppComponent implements OnInit {
     });
   }
 }
+

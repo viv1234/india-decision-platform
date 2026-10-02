@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Title, Meta } from '@angular/platform-browser';
 
 export interface SeoConfig {
@@ -18,7 +18,8 @@ export class SeoService {
   private readonly defaultDescription = 'AI-powered India Decision Platform. Calculate EMI, SIP, FD, Salary CTC, GST, Fuel, Inflation and Rent Affordability to make smarter everyday choices.';
   private readonly siteUrl = 'https://bharatdecision.com';
 
-  constructor(private titleService: Title, private metaService: Meta) {}
+  private titleService = inject(Title);
+  private metaService = inject(Meta);
 
   public updateSeo(config: Partial<SeoConfig>): void {
     const fullTitle = config.title ? `${config.title} | BharatDecision` : this.defaultTitle;
@@ -62,3 +63,4 @@ export class SeoService {
     link.setAttribute('href', url);
   }
 }
+

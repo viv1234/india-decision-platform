@@ -1,5 +1,4 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CalculatorCardComponent } from '../../shared/components/calculator-card/calculator-card.component';
 import { DisclaimerNoticeComponent } from '../../shared/components/disclaimer/disclaimer.component';
@@ -9,7 +8,7 @@ import { CalculatorMetadata } from '../../core/models/calculator.model';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, CalculatorCardComponent, DisclaimerNoticeComponent],
+  imports: [RouterModule, CalculatorCardComponent, DisclaimerNoticeComponent],
   template: `
     <div>
       <!-- HERO SECTION -->
@@ -79,15 +78,16 @@ import { CalculatorMetadata } from '../../core/models/calculator.model';
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <app-calculator-card
-            *ngFor="let calc of popularCalculators"
-            [id]="calc.id"
-            [name]="calc.name"
-            [category]="calc.category"
-            [description]="calc.description"
-            [icon]="calc.icon"
-            [route]="calc.route"
-          ></app-calculator-card>
+          @for (calc of popularCalculators(); track calc.id) {
+            <app-calculator-card
+              [id]="calc.id"
+              [name]="calc.name"
+              [category]="calc.category"
+              [description]="calc.description"
+              [icon]="calc.icon"
+              [route]="calc.route"
+            ></app-calculator-card>
+          }
         </div>
       </section>
 
@@ -175,26 +175,26 @@ import { CalculatorMetadata } from '../../core/models/calculator.model';
   `
 })
 export class HomeComponent implements OnInit {
-  popularCalculators: CalculatorMetadata[] = [];
-
-  constructor(private calculatorService: CalculatorService) {}
+  readonly popularCalculators = signal<CalculatorMetadata[]>([]);
+  private calculatorService = inject(CalculatorService);
 
   ngOnInit(): void {
     this.calculatorService.getCalculators().subscribe({
       next: (list) => {
-        this.popularCalculators = list.slice(0, 6);
+        this.popularCalculators.set(list.slice(0, 6));
       },
       error: () => {
         // Fallback default list if backend connecting
-        this.popularCalculators = [
+        this.popularCalculators.set([
           { id: 'emi', name: 'EMI Calculator', category: 'Loans', description: 'Calculate monthly loan EMI and total interest.', icon: 'calculator', route: '/calculators/emi', active: true },
           { id: 'sip', name: 'SIP Calculator', category: 'Finance', description: 'Estimate wealth accumulation through mutual fund SIPs.', icon: 'trending-up', route: '/calculators/sip', active: true },
           { id: 'fd', name: 'Fixed Deposit (FD)', category: 'Finance', description: 'Calculate guaranteed maturity returns and interest earned.', icon: 'piggy-bank', route: '/calculators/fd', active: true },
           { id: 'salary', name: 'Salary / CTC Calculator', category: 'Salary', description: 'Estimate monthly take-home salary and total deductions.', icon: 'briefcase', route: '/calculators/salary', active: true },
           { id: 'gst', name: 'GST Calculator', category: 'Shopping', description: 'Compute CGST, SGST and total price for GST rates.', icon: 'receipt', route: '/calculators/gst', active: true },
           { id: 'rent-affordability', name: 'Rent Affordability', category: 'Loans', description: 'Evaluate rent budget against income and existing EMIs.', icon: 'home', route: '/calculators/rent-affordability', active: true }
-        ];
+        ]);
       }
     });
   }
 }
+

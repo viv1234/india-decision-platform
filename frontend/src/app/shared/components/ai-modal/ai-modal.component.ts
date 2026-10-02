@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, HostListener, ElementRef, ViewChild, AfterViewChecked, OnInit, signal } from '@angular/core';
+import { Component, HostListener, ElementRef, OnInit, AfterViewChecked, signal, viewChild, output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -374,9 +374,12 @@ export interface ChatItem {
   `
 })
 export class AiModalComponent implements OnInit, AfterViewChecked {
-  @Output() close = new EventEmitter<void>();
-  @ViewChild('chatContainer') private chatContainer!: ElementRef;
-  @ViewChild('inputField') private inputField!: ElementRef;
+  readonly close = output<void>();
+  readonly chatContainer = viewChild<ElementRef>('chatContainer');
+  readonly inputField = viewChild<ElementRef>('inputField');
+
+  private calculatorService = inject(CalculatorService);
+  private router = inject(Router);
 
   userQueryText: string = '';
   loading = signal<boolean>(false);
@@ -391,11 +394,10 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
     'How much will ₹10,000 monthly SIP grow to in 10 years at 12% return?'
   ];
 
-  constructor(private calculatorService: CalculatorService, private router: Router) {}
-
   ngOnInit(): void {
     setTimeout(() => {
-      if (this.inputField) this.inputField.nativeElement.focus();
+      const field = this.inputField();
+      if (field) field.nativeElement.focus();
     }, 100);
   }
 
@@ -420,6 +422,7 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
     this.activeContext.set({});
     this.userQueryText = '';
   }
+
 
   sendUserMessage(queryText: string): void {
     const trimmed = queryText.trim();
@@ -565,8 +568,9 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
 
   private scrollToBottom(): void {
     try {
-      if (this.chatContainer) {
-        this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
+      const container = this.chatContainer();
+      if (container) {
+        container.nativeElement.scrollTop = container.nativeElement.scrollHeight;
       }
     } catch (err) {}
   }

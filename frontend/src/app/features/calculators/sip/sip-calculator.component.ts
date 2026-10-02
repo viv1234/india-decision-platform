@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -40,11 +40,13 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
                   type="number"
                   formControlName="monthlyInvestment"
                   class="form-input input-with-rupee"
-                  [ngClass]="{'is-invalid': isFieldInvalid('monthlyInvestment')}"
+                  [class.is-invalid]="isFieldInvalid('monthlyInvestment')"
                   placeholder="10000"
                 />
               </div>
-              <p *ngIf="isFieldInvalid('monthlyInvestment')" class="text-xs text-red-600 mt-1">Investment amount must be greater than zero.</p>
+              @if (isFieldInvalid('monthlyInvestment')) {
+                <p class="text-xs text-red-600 mt-1">Investment amount must be greater than zero.</p>
+              }
             </div>
 
             <div>
@@ -54,10 +56,12 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
                 step="0.1"
                 formControlName="expectedAnnualReturn"
                 class="form-input"
-                [ngClass]="{'is-invalid': isFieldInvalid('expectedAnnualReturn')}"
+                [class.is-invalid]="isFieldInvalid('expectedAnnualReturn')"
                 placeholder="12.0"
               />
-              <p *ngIf="isFieldInvalid('expectedAnnualReturn')" class="text-xs text-red-600 mt-1">Return rate cannot be negative.</p>
+              @if (isFieldInvalid('expectedAnnualReturn')) {
+                <p class="text-xs text-red-600 mt-1">Return rate cannot be negative.</p>
+              }
             </div>
 
             <div>
@@ -66,15 +70,20 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
                 type="number"
                 formControlName="durationYears"
                 class="form-input"
-                [ngClass]="{'is-invalid': isFieldInvalid('durationYears')}"
+                [class.is-invalid]="isFieldInvalid('durationYears')"
                 placeholder="10"
               />
-              <p *ngIf="isFieldInvalid('durationYears')" class="text-xs text-red-600 mt-1">Duration must be greater than zero.</p>
+              @if (isFieldInvalid('durationYears')) {
+                <p class="text-xs text-red-600 mt-1">Duration must be greater than zero.</p>
+              }
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate SIP Future Value</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Calculate SIP Future Value</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
@@ -82,50 +91,54 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
         <!-- Result Display -->
         <div class="lg:col-span-7 space-y-6">
           
-          <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
-            {{ error }}
-          </div>
-
-          <div *ngIf="result" class="space-y-6">
-            
-            <!-- Result Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="bg-emerald-600 text-white rounded-2xl p-5 shadow-lg shadow-emerald-600/20">
-                <span class="text-xs uppercase font-bold text-emerald-200 tracking-wider">Future Wealth Value</span>
-                <div class="text-2xl font-extrabold mt-1">₹{{ result.futureValue | number:'1.0-0' }}</div>
-              </div>
-
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Invested</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ result.totalInvestment | number:'1.0-0' }}</div>
-              </div>
-
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Estimated Returns</span>
-                <div class="text-xl font-bold text-emerald-600 mt-1">₹{{ result.estimatedReturns | number:'1.0-0' }}</div>
-              </div>
+          @if (error()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
+              {{ error() }}
             </div>
+          }
 
-            <!-- Disclaimer Notice Badge -->
-            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 font-medium">
-              ℹ️ <strong>Note:</strong> {{ result.disclaimer }}
+          @if (result(); as res) {
+            <div class="space-y-6">
+              
+              <!-- Result Cards -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-emerald-600 text-white rounded-2xl p-5 shadow-lg shadow-emerald-600/20">
+                  <span class="text-xs uppercase font-bold text-emerald-200 tracking-wider">Future Wealth Value</span>
+                  <div class="text-2xl font-extrabold mt-1">₹{{ res.futureValue | number:'1.0-0' }}</div>
+                </div>
+
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Invested</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">₹{{ res.totalInvestment | number:'1.0-0' }}</div>
+                </div>
+
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Estimated Returns</span>
+                  <div class="text-xl font-bold text-emerald-600 mt-1">₹{{ res.estimatedReturns | number:'1.0-0' }}</div>
+                </div>
+              </div>
+
+              <!-- Disclaimer Notice Badge -->
+              <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 font-medium">
+                ℹ️ <strong>Note:</strong> {{ res.disclaimer }}
+              </div>
+
+              <!-- Progress Bar Breakdown -->
+              <app-simple-chart
+                title="Wealth Accumulation Composition"
+                type="bar"
+                [barItems]="[
+                  { label: 'Amount Invested', displayValue: '₹' + (res.totalInvestment | number:'1.0-0'), percentage: (res.totalInvestment / res.futureValue) * 100, colorClass: 'bg-blue-600' },
+                  { label: 'Estimated Wealth Return', displayValue: '₹' + (res.estimatedReturns | number:'1.0-0'), percentage: (res.estimatedReturns / res.futureValue) * 100, colorClass: 'bg-emerald-500' }
+                ]"
+                [legendItems]="[
+                  { label: 'Invested Capital', value: '₹' + (res.totalInvestment | number:'1.0-0'), percentage: round((res.totalInvestment / res.futureValue) * 100), colorClass: 'bg-blue-600' },
+                  { label: 'Growth Gains', value: '₹' + (res.estimatedReturns | number:'1.0-0'), percentage: round((res.estimatedReturns / res.futureValue) * 100), colorClass: 'bg-emerald-500' }
+                ]"
+              ></app-simple-chart>
+
             </div>
-
-            <!-- Progress Bar Breakdown -->
-            <app-simple-chart
-              title="Wealth Accumulation Composition"
-              type="bar"
-              [barItems]="[
-                { label: 'Amount Invested', displayValue: '₹' + (result.totalInvestment | number:'1.0-0'), percentage: (result.totalInvestment / result.futureValue) * 100, colorClass: 'bg-blue-600' },
-                { label: 'Estimated Wealth Return', displayValue: '₹' + (result.estimatedReturns | number:'1.0-0'), percentage: (result.estimatedReturns / result.futureValue) * 100, colorClass: 'bg-emerald-500' }
-              ]"
-              [legendItems]="[
-                { label: 'Invested Capital', value: '₹' + (result.totalInvestment | number:'1.0-0'), percentage: round((result.totalInvestment / result.futureValue) * 100), colorClass: 'bg-blue-600' },
-                { label: 'Growth Gains', value: '₹' + (result.estimatedReturns | number:'1.0-0'), percentage: round((result.estimatedReturns / result.futureValue) * 100), colorClass: 'bg-emerald-500' }
-              ]"
-            ></app-simple-chart>
-
-          </div>
+          }
 
           <app-disclaimer-notice customText="SIP calculations assume compounding return rates and are intended as projection estimates only. Mutual Fund investments are subject to market risks."></app-disclaimer-notice>
 
@@ -136,12 +149,13 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class SipCalculatorComponent implements OnInit {
-  sipForm!: FormGroup;
-  result: SipResponse | null = null;
-  loading: boolean = false;
-  error: string | null = null;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  sipForm!: FormGroup;
+  readonly result = signal<SipResponse | null>(null);
+  readonly loading = signal<boolean>(false);
+  readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
     this.sipForm = this.fb.group({
@@ -168,17 +182,17 @@ export class SipCalculatorComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
 
     this.calculatorService.calculateSip(this.sipForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = err?.error?.message || 'Failed to calculate SIP.';
-        this.loading = false;
+        this.error.set(err?.error?.message || 'Failed to calculate SIP.');
+        this.loading.set(false);
       }
     });
   }
@@ -192,3 +206,4 @@ export class SipCalculatorComponent implements OnInit {
     this.calculate();
   }
 }
+

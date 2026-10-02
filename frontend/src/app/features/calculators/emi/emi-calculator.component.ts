@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -45,13 +45,15 @@ import { AiInsightCardComponent } from '../../../shared/components/ai-insight-ca
                   type="number"
                   formControlName="principal"
                   class="form-input input-with-rupee"
-                  [ngClass]="{'is-invalid': isFieldInvalid('principal')}"
+                  [class.is-invalid]="isFieldInvalid('principal')"
                   [attr.aria-invalid]="isFieldInvalid('principal')"
                   aria-describedby="principal-error"
                   placeholder="2500000"
                 />
               </div>
-              <p *ngIf="isFieldInvalid('principal')" id="principal-error" class="text-xs text-red-700 font-medium mt-1">Loan amount must be greater than zero.</p>
+              @if (isFieldInvalid('principal')) {
+                <p id="principal-error" class="text-xs text-red-700 font-medium mt-1">Loan amount must be greater than zero.</p>
+              }
             </div>
 
             <!-- Interest Rate -->
@@ -63,12 +65,14 @@ import { AiInsightCardComponent } from '../../../shared/components/ai-insight-ca
                 step="0.1"
                 formControlName="annualInterestRate"
                 class="form-input"
-                [ngClass]="{'is-invalid': isFieldInvalid('annualInterestRate')}"
+                [class.is-invalid]="isFieldInvalid('annualInterestRate')"
                 [attr.aria-invalid]="isFieldInvalid('annualInterestRate')"
                 aria-describedby="rate-error"
                 placeholder="8.5"
               />
-              <p *ngIf="isFieldInvalid('annualInterestRate')" id="rate-error" class="text-xs text-red-700 font-medium mt-1">Interest rate cannot be negative.</p>
+              @if (isFieldInvalid('annualInterestRate')) {
+                <p id="rate-error" class="text-xs text-red-700 font-medium mt-1">Interest rate cannot be negative.</p>
+              }
             </div>
 
             <!-- Tenure Value & Unit -->
@@ -80,7 +84,7 @@ import { AiInsightCardComponent } from '../../../shared/components/ai-insight-ca
                   type="number"
                   formControlName="tenureValue"
                   class="form-input"
-                  [ngClass]="{'is-invalid': isFieldInvalid('tenureValue')}"
+                  [class.is-invalid]="isFieldInvalid('tenureValue')"
                   [attr.aria-invalid]="isFieldInvalid('tenureValue')"
                   placeholder="5"
                 />
@@ -95,9 +99,12 @@ import { AiInsightCardComponent } from '../../../shared/components/ai-insight-ca
             </div>
 
             <!-- Action Buttons -->
-            <button type="submit" [disabled]="loading" [attr.aria-busy]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4 cursor-pointer">
-              <span *ngIf="!loading">Calculate EMI</span>
-              <span *ngIf="loading" class="flex items-center gap-2">Calculating...</span>
+            <button type="submit" [disabled]="loading()" [attr.aria-busy]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4 cursor-pointer">
+              @if (!loading()) {
+                <span>Calculate EMI</span>
+              } @else {
+                <span class="flex items-center gap-2">Calculating...</span>
+              }
             </button>
           </form>
         </div>
@@ -105,47 +112,55 @@ import { AiInsightCardComponent } from '../../../shared/components/ai-insight-ca
         <!-- Result Display Section -->
         <div class="lg:col-span-7 space-y-6">
           
-          <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
-            {{ error }}
-          </div>
-
-          <div *ngIf="result" class="space-y-6">
-            
-            <!-- Result Primary Metrics -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="bg-blue-600 text-white rounded-2xl p-5 shadow-lg shadow-blue-600/20">
-                <span class="text-xs uppercase font-bold text-blue-200 tracking-wider">Monthly EMI</span>
-                <div class="text-2xl font-extrabold mt-1">₹{{ result.monthlyEmi | number:'1.0-0' }}</div>
-              </div>
-
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Interest</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ result.totalInterest | number:'1.0-0' }}</div>
-              </div>
-
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Repayment</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ result.totalPayment | number:'1.0-0' }}</div>
-              </div>
+          @if (error()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
+              {{ error() }}
             </div>
+          }
 
-            <!-- SVG Donut Chart -->
-            <app-simple-chart
-              title="Principal vs Interest Breakdown"
-              type="donut"
-              [pct1]="result.principalPercentage"
-              centerLabel="Principal"
-              [centerValue]="result.principalPercentage + '%'"
-              [legendItems]="[
-                { label: 'Principal Loan Amount', value: '₹' + (result.principalAmount | number:'1.0-0'), percentage: result.principalPercentage, colorClass: 'bg-blue-600' },
-                { label: 'Total Interest Payable', value: '₹' + (result.totalInterest | number:'1.0-0'), percentage: result.interestPercentage, colorClass: 'bg-slate-300' }
-              ]"
-            ></app-simple-chart>
+          @if (result(); as res) {
+            <div class="space-y-6">
+              
+              <!-- Result Primary Metrics -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-blue-600 text-white rounded-2xl p-5 shadow-lg shadow-blue-600/20">
+                  <span class="text-xs uppercase font-bold text-blue-200 tracking-wider">Monthly EMI</span>
+                  <div class="text-2xl font-extrabold mt-1">₹{{ res.monthlyEmi | number:'1.0-0' }}</div>
+                </div>
 
-            <!-- AI Insight Takeaway Card -->
-            <app-ai-insight-card [insight]="aiInsight"></app-ai-insight-card>
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Interest</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">₹{{ res.totalInterest | number:'1.0-0' }}</div>
+                </div>
 
-          </div>
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Repayment</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">₹{{ res.totalPayment | number:'1.0-0' }}</div>
+                </div>
+              </div>
+
+              <!-- SVG Donut Chart -->
+              <app-simple-chart
+                title="Principal vs Interest Breakdown"
+                type="donut"
+                [pct1]="res.principalPercentage"
+                centerLabel="Principal"
+                [centerValue]="res.principalPercentage + '%'"
+                [legendItems]="[
+                  { label: 'Principal Loan Amount', value: '₹' + (res.principalAmount | number:'1.0-0'), percentage: res.principalPercentage, colorClass: 'bg-blue-600' },
+                  { label: 'Total Interest Payable', value: '₹' + (res.totalInterest | number:'1.0-0'), percentage: res.interestPercentage, colorClass: 'bg-slate-300' }
+                ]"
+              ></app-simple-chart>
+
+              <!-- AI Insight Takeaway Card with Lazy Deferring -->
+              @defer (on viewport) {
+                <app-ai-insight-card [insight]="aiInsight()"></app-ai-insight-card>
+              } @placeholder {
+                <div class="h-24 bg-slate-100 rounded-2xl animate-pulse"></div>
+              }
+
+            </div>
+          }
 
           <app-disclaimer-notice></app-disclaimer-notice>
 
@@ -156,17 +171,15 @@ import { AiInsightCardComponent } from '../../../shared/components/ai-insight-ca
   `
 })
 export class EmiCalculatorComponent implements OnInit {
-  emiForm!: FormGroup;
-  result: EmiResponse | null = null;
-  aiInsight: AiInsightResponse | null = null;
-  loading: boolean = false;
-  error: string | null = null;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
+  private route = inject(ActivatedRoute);
 
-  constructor(
-    private fb: FormBuilder,
-    private calculatorService: CalculatorService,
-    private route: ActivatedRoute
-  ) {}
+  emiForm!: FormGroup;
+  readonly result = signal<EmiResponse | null>(null);
+  readonly aiInsight = signal<AiInsightResponse | null>(null);
+  readonly loading = signal<boolean>(false);
+  readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
     this.emiForm = this.fb.group({
@@ -200,14 +213,14 @@ export class EmiCalculatorComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
     const formVals = this.emiForm.value;
 
     this.calculatorService.calculateEmi(formVals).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
 
         // Fetch AI Decision Insight
         this.calculatorService.getAiInsight({
@@ -215,12 +228,12 @@ export class EmiCalculatorComponent implements OnInit {
           inputData: formVals,
           resultData: res
         }).subscribe(insightRes => {
-          this.aiInsight = insightRes;
+          this.aiInsight.set(insightRes);
         });
       },
       error: (err) => {
-        this.error = err?.error?.message || 'Failed to calculate EMI.';
-        this.loading = false;
+        this.error.set(err?.error?.message || 'Failed to calculate EMI.');
+        this.loading.set(false);
       }
     });
   }
@@ -235,4 +248,5 @@ export class EmiCalculatorComponent implements OnInit {
     this.calculate();
   }
 }
+
 

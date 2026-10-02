@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 
@@ -14,8 +14,7 @@ declare global {
 })
 export class AnalyticsService {
   private trackingId = 'G-BHARATDEC'; // Replace with production GA4 Measurement ID if needed
-
-  constructor(private router: Router) {}
+  private router = inject(Router);
 
   public init(): void {
     // Automatically track page views on route changes
@@ -62,3 +61,4 @@ export class AnalyticsService {
     });
   }
 }
+

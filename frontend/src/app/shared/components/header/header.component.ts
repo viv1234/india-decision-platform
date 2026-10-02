@@ -1,11 +1,10 @@
-import { Component, EventEmitter, Output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, output, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   template: `
     <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -95,10 +94,11 @@ import { RouterModule } from '@angular/router';
   `
 })
 export class HeaderComponent {
-  @Output() openAiModal = new EventEmitter<void>();
-  mobileMenuOpen = signal<boolean>(false);
+  readonly openAiModal = output<void>();
+  readonly mobileMenuOpen = signal<boolean>(false);
 
   toggleMobileMenu(): void {
     this.mobileMenuOpen.update(v => !v);
   }
 }
+
