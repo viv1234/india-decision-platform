@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CalculatorService } from '../../../core/services/calculator.service';
+import { AnalyticsService } from '../../../core/services/analytics.service';
 import { ActiveContext, ComparisonData, ChatMessage } from '../../../core/models/calculator.model';
 
 export interface ChatItem {
@@ -379,6 +380,7 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
   readonly inputField = viewChild<ElementRef>('inputField');
 
   private calculatorService = inject(CalculatorService);
+  private analyticsService = inject(AnalyticsService);
   private router = inject(Router);
 
   userQueryText: string = '';
@@ -427,6 +429,8 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
   sendUserMessage(queryText: string): void {
     const trimmed = queryText.trim();
     if (!trimmed || this.loading()) return;
+
+    this.analyticsService.trackAiQuery(trimmed, this.activeContext().intentCode || 'INITIAL');
 
     const userMsg: ChatItem = {
       id: 'user-' + Date.now(),

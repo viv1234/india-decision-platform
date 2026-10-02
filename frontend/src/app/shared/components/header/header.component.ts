@@ -1,5 +1,6 @@
-import { Component, output, signal } from '@angular/core';
+import { Component, output, signal, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { AnalyticsService } from '../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-header',
@@ -32,7 +33,7 @@ import { RouterModule } from '@angular/router';
 
         <!-- Right Action Button & Mobile Hamburger Toggle -->
         <div class="flex items-center gap-2 sm:gap-3">
-          <button (click)="openAiModal.emit()" class="inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs sm:text-sm font-bold px-3 py-2 sm:px-3.5 sm:py-2 rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all shadow-sm shadow-amber-500/20 cursor-pointer">
+          <button (click)="triggerAiModal()" class="inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs sm:text-sm font-bold px-3 py-2 sm:px-3.5 sm:py-2 rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all shadow-sm shadow-amber-500/20 cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
@@ -96,9 +97,16 @@ import { RouterModule } from '@angular/router';
 export class HeaderComponent {
   readonly openAiModal = output<void>();
   readonly mobileMenuOpen = signal<boolean>(false);
+  private analyticsService = inject(AnalyticsService);
+
+  triggerAiModal(): void {
+    this.analyticsService.trackCtaClick('header_ask_ai');
+    this.openAiModal.emit();
+  }
 
   toggleMobileMenu(): void {
     this.mobileMenuOpen.update(v => !v);
   }
 }
+
 
