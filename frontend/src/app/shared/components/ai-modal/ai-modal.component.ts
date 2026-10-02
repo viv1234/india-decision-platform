@@ -18,6 +18,8 @@ export interface ChatItem {
   keyMetrics?: Record<string, string | number>;
   retrievedContext?: string[];
   parameterChanges?: Record<string, { oldVal: any; newVal: any }>;
+  userProvidedParams?: Record<string, any>;
+  assumedParams?: Record<string, any>;
   comparisonData?: ComparisonData;
   suggestedFollowUps?: string[];
   calculatorId?: string;
@@ -48,9 +50,9 @@ export interface ChatItem {
             <div>
               <div class="flex items-center gap-2">
                 <h2 id="ai-modal-title" class="text-base font-bold text-slate-900">Conversational Decision Intelligence</h2>
-                <span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full">AI 2.0</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full">Guided Engine</span>
               </div>
-              <p class="text-xs text-slate-500">Continuous context-aware personal finance assistant</p>
+              <p class="text-xs text-slate-500">Instant deterministic calculations & natural language financial advice</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -81,13 +83,13 @@ export interface ChatItem {
               💡
             </div>
             <div>
-              <h3 class="text-base font-bold text-slate-800">Ask any financial decision question</h3>
-              <p class="text-xs text-slate-500 mt-1">Describe your income, budget, loan, or investment goal. Ask follow-up questions to explore scenarios in real time.</p>
+              <h3 class="text-base font-bold text-slate-800">Describe your financial decision</h3>
+              <p class="text-xs text-slate-500 mt-1">Get an instant calculated answer. Ask follow-up questions to explore alternative down payments, car models, or tenure options.</p>
             </div>
 
             <!-- Starter Quick Prompts -->
             <div class="text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
-              <span class="text-xs font-bold text-slate-700 block">Try a starter scenario:</span>
+              <span class="text-xs font-bold text-slate-700 block">Popular Financial Scenarios:</span>
               <div class="grid grid-cols-1 gap-2">
                 <button
                   *ngFor="let sample of sampleQueries"
@@ -119,7 +121,7 @@ export interface ChatItem {
 
               <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3.5 text-xs w-full">
                 
-                <!-- Intent & Verdict Header -->
+                <!-- Intent & Verdict Header (Result First) -->
                 <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-2.5">
                   <div class="flex items-center gap-2">
                     <span *ngIf="msg.intentCode" class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Intent</span>
@@ -133,6 +135,11 @@ export interface ChatItem {
                   >
                     {{ msg.decisionVerdict.replace('_', ' ') }}
                   </span>
+                </div>
+
+                <!-- Primary Top Line Answer (Result First) -->
+                <div class="text-slate-900 font-bold leading-relaxed text-sm bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                  {{ msg.explanation || msg.text }}
                 </div>
 
                 <!-- Parameter Changes Highlight Banner -->
@@ -168,7 +175,6 @@ export interface ChatItem {
                       <div class="text-[11px] space-y-1 text-slate-600">
                         <div class="flex justify-between"><span class="text-slate-500">EMI:</span> <span class="font-bold text-slate-900">₹{{ msg.comparisonData.scenarioA.monthlyEmi?.toLocaleString() }}</span></div>
                         <div class="flex justify-between"><span class="text-slate-500">Total Interest:</span> <span class="font-medium text-slate-800">₹{{ msg.comparisonData.scenarioA.totalInterest?.toLocaleString() }}</span></div>
-                        <div class="flex justify-between" *ngIf="msg.comparisonData.scenarioA.totalMonthlyExpense"><span class="text-slate-500">Total Outflow:</span> <span class="font-medium text-slate-800">₹{{ msg.comparisonData.scenarioA.totalMonthlyExpense?.toLocaleString() }}</span></div>
                       </div>
                     </div>
 
@@ -181,7 +187,6 @@ export interface ChatItem {
                       <div class="text-[11px] space-y-1 text-blue-900">
                         <div class="flex justify-between"><span class="text-slate-600">EMI:</span> <span class="font-bold text-blue-950">₹{{ msg.comparisonData.scenarioB.monthlyEmi?.toLocaleString() }}</span></div>
                         <div class="flex justify-between"><span class="text-slate-600">Total Interest:</span> <span class="font-medium text-blue-950">₹{{ msg.comparisonData.scenarioB.totalInterest?.toLocaleString() }}</span></div>
-                        <div class="flex justify-between" *ngIf="msg.comparisonData.scenarioB.totalMonthlyExpense"><span class="text-slate-600">Total Outflow:</span> <span class="font-medium text-blue-950">₹{{ msg.comparisonData.scenarioB.totalMonthlyExpense?.toLocaleString() }}</span></div>
                       </div>
                     </div>
                   </div>
@@ -210,27 +215,41 @@ export interface ChatItem {
                   </div>
                 </div>
 
-                <!-- Primary Text / Markdown Explanation -->
-                <div class="text-slate-800 leading-relaxed font-normal whitespace-pre-line text-xs sm:text-sm">
-                  {{ msg.explanation || msg.text }}
-                </div>
-
-                <!-- Expandable Technical Breakdown (Speed Optimization) -->
+                <!-- Expandable Parameters & Assumptions (User vs Assumed) -->
                 <details *ngIf="msg.extractedParameters && objectKeys(msg.extractedParameters).length > 0" class="text-xs text-slate-500 group border-t border-slate-100 pt-2">
-                  <summary class="font-semibold text-slate-600 cursor-pointer hover:text-slate-900 transition-colors select-none">
-                    🔍 View Active Decision Parameters & Assumptions
+                  <summary class="font-semibold text-slate-600 cursor-pointer hover:text-slate-900 transition-colors select-none flex items-center justify-between">
+                    <span>🔍 View Active Decision Parameters & Assumptions</span>
+                    <span class="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
                   </summary>
-                  <div class="mt-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 grid grid-cols-2 gap-2 text-[11px]">
-                    <div *ngFor="let key of objectKeys(msg.extractedParameters)" class="flex justify-between border-b border-slate-200/60 pb-1">
-                      <span class="text-slate-500 capitalize">{{ formatParamKey(key) }}:</span>
-                      <span class="font-bold text-slate-800">{{ formatValue(msg.extractedParameters[key]) }}</span>
+
+                  <div class="mt-2.5 space-y-2">
+                    <!-- User Provided -->
+                    <div *ngIf="msg.userProvidedParams && objectKeys(msg.userProvidedParams).length > 0" class="bg-blue-50/60 p-2.5 rounded-lg border border-blue-100">
+                      <span class="text-[10px] font-bold text-blue-900 uppercase block mb-1">👤 Provided by You:</span>
+                      <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                        <div *ngFor="let key of objectKeys(msg.userProvidedParams)" class="flex justify-between">
+                          <span class="text-slate-600 capitalize">{{ formatParamKey(key) }}:</span>
+                          <span class="font-bold text-blue-950">{{ formatValue(msg.userProvidedParams[key]) }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Assumed Defaults -->
+                    <div *ngIf="msg.assumedParams && objectKeys(msg.assumedParams).length > 0" class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <span class="text-[10px] font-bold text-slate-600 uppercase block mb-1">⚙️ Assumed Benchmarks:</span>
+                      <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                        <div *ngFor="let key of objectKeys(msg.assumedParams)" class="flex justify-between">
+                          <span class="text-slate-500 capitalize">{{ formatParamKey(key) }}:</span>
+                          <span class="font-semibold text-slate-800">{{ formatValue(msg.assumedParams[key]) }}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </details>
 
-                <!-- Shortcut Follow-up Chips -->
+                <!-- Shortcut Follow-up Action Chips -->
                 <div *ngIf="msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0" class="pt-2 border-t border-slate-100 space-y-1.5">
-                  <span class="text-[10px] font-bold text-slate-500 uppercase block">Suggested Follow-ups:</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase block">Suggested Next Actions:</span>
                   <div class="flex flex-wrap gap-1.5">
                     <button
                       *ngFor="let followUp of msg.suggestedFollowUps"
@@ -260,12 +279,12 @@ export interface ChatItem {
             <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-1">
               ⚡
             </div>
-            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm text-xs text-slate-500 flex items-center gap-2">
+            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm text-xs text-slate-600 flex items-center gap-2 font-medium">
               <svg class="animate-spin w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              Evaluating decision context & calculating engine parameters...
+              Running deterministic calculation engines & analyzing decision context...
             </div>
           </div>
 
@@ -314,7 +333,7 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
   objectKeys = Object.keys;
 
   sampleQueries = [
-    'I earn ₹1 lakh per month. Can I afford a ₹25 lakh car?',
+    'I earn ₹1.2 lakh per month. Can I afford a ₹25 lakh car with ₹5 lakh down payment?',
     'I want to rent a 2BHK flat for ₹30,000 per month on ₹90,000 salary',
     'What is my net in-hand salary for 15 LPA CTC?',
     'How much will ₹10,000 monthly SIP grow to in 10 years at 12% return?'
@@ -323,7 +342,6 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
   constructor(private calculatorService: CalculatorService, private router: Router) {}
 
   ngOnInit(): void {
-    // Focus input field on mount
     setTimeout(() => {
       if (this.inputField) this.inputField.nativeElement.focus();
     }, 100);
@@ -366,9 +384,7 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
     this.userQuery = '';
     this.loading = true;
 
-    // Check if this is the first interaction vs a follow-up interaction
     if (!this.activeContext.intentCode) {
-      // First turn: Use orchestrateAi to discover intent & initial calculations
       this.calculatorService.orchestrateAi({ userQuery: trimmed }).subscribe({
         next: (res) => {
           this.activeContext = {
@@ -409,7 +425,6 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
         }
       });
     } else {
-      // Multi-turn follow-up: Use chatWithAi with context & history
       const historyItems: ChatMessage[] = this.messages.map(m => ({
         role: m.sender === 'user' ? 'USER' : 'ASSISTANT',
         text: m.text || m.explanation || ''
@@ -436,6 +451,8 @@ export class AiModalComponent implements OnInit, AfterViewChecked {
             explanation: res.responseMarkdown,
             keyMetrics: this.activeContext.keyMetrics,
             parameterChanges: res.parameterChanges,
+            userProvidedParams: res.userProvidedParams,
+            assumedParams: res.assumedParams,
             comparisonData: res.comparisonData,
             suggestedFollowUps: res.suggestedFollowUps,
             calculatorId: this.activeContext.recommendedCalculatorId,

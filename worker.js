@@ -112,13 +112,40 @@ async function handleChat(request, env) {
     const currentParams = Object.assign({}, activeContext.extractedParameters || {});
     const lower = query.toLowerCase();
 
+    // Scope check for non-financial queries
+    const isFinancialQuery = lower.includes("car") || lower.includes("rent") || lower.includes("salary")
+      || lower.includes("ctc") || lower.includes("sip") || lower.includes("emi") || lower.includes("loan")
+      || lower.includes("down payment") || lower.includes("invest") || lower.includes("interest")
+      || lower.includes("pay") || lower.includes("afford") || lower.includes("lakh") || lower.includes("price")
+      || lower.includes("budget") || lower.includes("compare") || lower.includes("vs");
+
+    if (!isFinancialQuery && !activeContext.intentCode) {
+      const msg = {
+        id: "msg_" + Date.now(),
+        sender: "assistant",
+        timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+        queryType: "OUT_OF_SCOPE",
+        text: "I am an AI Financial Decision Engine specialized in Indian personal finance decisions (Salary, EMI, Car Affordability, Rent Budget, SIP Investments). Please ask a financial query to get started!",
+        followUpQuestions: [
+          "I earn ₹1.2 lakh per month. Can I afford a ₹25 lakh car?",
+          "What is my net in-hand salary for 15 LPA CTC?",
+          "Can I afford ₹30,000 monthly rent on ₹90,000 salary?"
+        ]
+      };
+      return jsonResponse({ conversationId: convId, message: msg, updatedContext: activeContext });
+    }
+
     const extracted = extractParametersFromQuery(query);
     const ragContext = retrieveRagContext(query);
 
+    let queryType = "RELATED_CALCULATION";
     let changesSummary = null;
     let comparisonData = null;
 
-    if (lower.includes("compare") || lower.includes("versus") || lower.includes("vs")) {
+    if (lower.includes("why") || lower.includes("explain") || lower.includes("how comes") || lower.includes("rule")) {
+      queryType = "EXPLANATION";
+    } else if (lower.includes("compare") || lower.includes("versus") || lower.includes("vs")) {
+      queryType = "SCENARIO_COMPARISON";
       const carA = currentParams.carPrice || 2500000;
       const carB = extracted.params.carPrice || 2000000;
       const loanA = carA * 0.8;
@@ -138,6 +165,7 @@ async function handleChat(request, env) {
         ]
       };
     } else if (Object.keys(extracted.params).length > 0) {
+      queryType = "INPUT_MODIFICATION";
       const changeParts = [];
       for (const [key, val] of Object.entries(extracted.params)) {
         const oldVal = currentParams[key];
@@ -153,6 +181,17 @@ async function handleChat(request, env) {
 
     const intentCode = extracted.intentCode !== "GENERAL_QUERY" ? extracted.intentCode : (activeContext.intentCode || "CAR_AFFORDABILITY");
     const synth = buildDecisionSynthesis(intentCode, currentParams);
+
+    // Track user provided vs assumed
+    const userProvidedParams = {};
+    const assumedParams = {};
+    for (const [key, val] of Object.entries(currentParams)) {
+      if (extracted.params[key] !== undefined) {
+        userProvidedParams[key] = val;
+      } else {
+        assumedParams[key] = val;
+      }
+    }
 
     let explanation = "";
     if (apiKey && apiKey.length > 10) {
@@ -172,6 +211,7 @@ async function handleChat(request, env) {
       timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
       text: explanation,
       intentCode: intentCode,
+      queryType: queryType,
       recommendedCalculatorId: extracted.recommendedCalculatorId || activeContext.recommendedCalculatorId || "emi",
       calculatorName: extracted.calculatorName || "EMI Calculator",
       decisionVerdict: synth.verdict,
@@ -180,6 +220,8 @@ async function handleChat(request, env) {
       comparisonData: comparisonData,
       keyMetrics: synth.keyMetrics,
       extractedParameters: currentParams,
+      userProvidedParams: userProvidedParams,
+      assumedParams: assumedParams,
       followUpQuestions: synth.followUpQuestions,
       retrievedContext: ragContext
     };
@@ -188,6 +230,8 @@ async function handleChat(request, env) {
       intentCode: intentCode,
       recommendedCalculatorId: message.recommendedCalculatorId,
       extractedParameters: currentParams,
+      userProvidedParams: userProvidedParams,
+      assumedParams: assumedParams,
       lastCalculationResult: null
     };
 
@@ -635,7 +679,12 @@ function extractParametersFromQuery(query) {
     result.intentCode = "CAR_AFFORDABILITY";
     result.recommendedCalculatorId = "emi";
     result.calculatorName = "EMI Calculator";
-    if (lakhs.length >= 2) {
+    if (lakhs.length >= 3) {
+      result.params.monthlyIncome = lakhs[0];
+      result.params.principal = lakhs[1];
+      result.params.carPrice = lakhs[1];
+      result.params.downPayment = lakhs[2];
+    } else if (lakhs.length === 2) {
       result.params.monthlyIncome = lakhs[0];
       result.params.principal = lakhs[1];
       result.params.carPrice = lakhs[1];

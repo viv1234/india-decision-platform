@@ -257,6 +257,8 @@ export interface ActiveContext {
   recommendedCalculatorId?: string;
   calculatorName?: string;
   extractedParameters?: Record<string, any>;
+  userProvidedParams?: Record<string, any>;
+  assumedParams?: Record<string, any>;
   lastCalculationResult?: any;
   decisionVerdict?: string;
   badgeColor?: string;
@@ -298,6 +300,8 @@ export interface AiChatResponse {
   responseMarkdown?: string;
   activeContext?: ActiveContext;
   parameterChanges?: Record<string, { oldVal: any; newVal: any }>;
+  userProvidedParams?: Record<string, any>;
+  assumedParams?: Record<string, any>;
   comparisonData?: ComparisonData;
   suggestedFollowUps?: string[];
 }

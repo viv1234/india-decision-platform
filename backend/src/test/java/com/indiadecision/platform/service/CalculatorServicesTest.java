@@ -240,4 +240,51 @@ class CalculatorServicesTest {
         assertEquals("Comfortably Affordable", res.getAffordabilityStatus());
         assertEquals("green", res.getAffordabilityBadgeColor());
     }
+
+    // --- CONVERSATIONAL AI DECISION ENGINE TESTS ---
+
+    @Test
+    @DisplayName("AI Chat: Car Affordability Complete Question")
+    void testProcessChatCarAffordability() {
+        com.indiadecision.platform.service.ai.AiOrchestratorServiceImpl orchestrator = new com.indiadecision.platform.service.ai.AiOrchestratorServiceImpl(
+                new com.indiadecision.platform.service.ai.AiIntentDetectorImpl(),
+                new com.indiadecision.platform.service.ai.CalculatorToolRegistry(),
+                emiService,
+                fuelService,
+                new com.indiadecision.platform.service.ai.FinancialRagKnowledgeService(),
+                new com.indiadecision.platform.service.ai.AiApiClient()
+        );
+
+        AiChatRequestDto req = new AiChatRequestDto();
+        req.setUserQuery("I earn ₹1.2 lakh per month. Can I afford a ₹25 lakh car with ₹5 lakh down payment?");
+        
+        AiChatResponseDto res = orchestrator.processChat(req);
+        assertNotNull(res);
+        assertNotNull(res.getMessage());
+        assertEquals("CAR_AFFORDABILITY", res.getMessage().getIntentCode());
+        assertEquals(120000.0, res.getMessage().getExtractedParameters().get("monthlyIncome"));
+        assertEquals(2500000.0, res.getMessage().getExtractedParameters().get("carPrice"));
+        assertEquals(500000.0, res.getMessage().getExtractedParameters().get("downPayment"));
+    }
+
+    @Test
+    @DisplayName("AI Chat: Out of Scope Question Handling")
+    void testProcessChatOutOfScope() {
+        com.indiadecision.platform.service.ai.AiOrchestratorServiceImpl orchestrator = new com.indiadecision.platform.service.ai.AiOrchestratorServiceImpl(
+                new com.indiadecision.platform.service.ai.AiIntentDetectorImpl(),
+                new com.indiadecision.platform.service.ai.CalculatorToolRegistry(),
+                emiService,
+                fuelService,
+                new com.indiadecision.platform.service.ai.FinancialRagKnowledgeService(),
+                new com.indiadecision.platform.service.ai.AiApiClient()
+        );
+
+        AiChatRequestDto req = new AiChatRequestDto();
+        req.setUserQuery("Who won the cricket match yesterday?");
+
+        AiChatResponseDto res = orchestrator.processChat(req);
+        assertNotNull(res);
+        assertEquals("OUT_OF_SCOPE", res.getMessage().getQueryType());
+        assertTrue(res.getMessage().getText().contains("Financial Decision Engine"));
+    }
 }

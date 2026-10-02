@@ -199,6 +199,28 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         Map<String, Object> currentParams = new HashMap<>(context.getExtractedParameters() != null ? context.getExtractedParameters() : Collections.emptyMap());
         String lower = query.toLowerCase(Locale.ROOT);
 
+        // Scope check for non-financial queries
+        boolean isFinancialQuery = lower.contains("car") || lower.contains("rent") || lower.contains("salary")
+                || lower.contains("ctc") || lower.contains("sip") || lower.contains("emi") || lower.contains("loan")
+                || lower.contains("down payment") || lower.contains("invest") || lower.contains("interest")
+                || lower.contains("pay") || lower.contains("afford") || lower.contains("lakh") || lower.contains("price")
+                || lower.contains("budget") || lower.contains("compare") || lower.contains("vs");
+
+        if (!isFinancialQuery && context.getIntentCode() == null) {
+            AiChatResponseDto.ChatMessageDto msg = new AiChatResponseDto.ChatMessageDto();
+            msg.setId(UUID.randomUUID().toString());
+            msg.setSender("assistant");
+            msg.setTimestamp(new java.text.SimpleDateFormat("HH:mm").format(new Date()));
+            msg.setQueryType("OUT_OF_SCOPE");
+            msg.setText("I am an AI Financial Decision Engine specialized in Indian personal finance decisions (Salary, EMI, Car Affordability, Rent Budget, SIP Investments). Please ask a financial query to get started!");
+            msg.setFollowUpQuestions(List.of(
+                    "I earn ₹1.2 lakh per month. Can I afford a ₹25 lakh car?",
+                    "What is my net in-hand salary for 15 LPA CTC?",
+                    "Can I afford ₹30,000 monthly rent on ₹90,000 salary?"
+            ));
+            return new AiChatResponseDto(convId, msg, context);
+        }
+
         // Detect intent
         AiIntentDetector.AiIntentResult intentResult = intentDetector.detectIntent(query);
         boolean isNewIntent = context.getIntentCode() == null || (!context.getIntentCode().equals(intentResult.intent().name()) && (lower.contains("car") || lower.contains("rent") || lower.contains("salary") || lower.contains("sip")));
@@ -213,19 +235,23 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         Map<String, Object> newlyExtracted = extractParameters(query, intentResult.intent());
         String changesSummary = null;
         AiChatResponseDto.ComparisonDataDto comparison = null;
+        String queryType = "RELATED_CALCULATION";
 
-        // Check if user is asking for scenario comparison (e.g. "Compare this with a 20 lakh car")
-        if (lower.contains("compare") || lower.contains("versus") || lower.contains("vs")) {
+        // Check query type
+        if (lower.contains("why") || lower.contains("explain") || lower.contains("how comes") || lower.contains("rule")) {
+            queryType = "EXPLANATION";
+        } else if (lower.contains("compare") || lower.contains("versus") || lower.contains("vs")) {
+            queryType = "SCENARIO_COMPARISON";
             comparison = buildComparisonScenario(query, currentParams, newlyExtracted);
         } else if (!newlyExtracted.isEmpty()) {
-            // Parameter modification update
+            queryType = "INPUT_MODIFICATION";
             StringBuilder changes = new StringBuilder("⚡ Parameter Updated: ");
             for (Map.Entry<String, Object> entry : newlyExtracted.entrySet()) {
                 Object oldVal = currentParams.get(entry.getKey());
                 if (oldVal != null && !oldVal.equals(entry.getValue())) {
-                    changes.append(String.format("%s changed from %s to %s. ", entry.getKey(), oldVal, entry.getValue()));
+                    changes.append(String.format("%s changed from %s to %s. ", entry.getKey(), formatVal(oldVal), formatVal(entry.getValue())));
                 } else {
-                    changes.append(String.format("%s set to %s. ", entry.getKey(), entry.getValue()));
+                    changes.append(String.format("%s set to %s. ", entry.getKey(), formatVal(entry.getValue())));
                 }
                 currentParams.put(entry.getKey(), entry.getValue());
             }
@@ -233,6 +259,17 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         }
 
         context.setExtractedParameters(currentParams);
+
+        // Separate User-Provided vs Assumed Parameters
+        Map<String, Object> userProvided = new HashMap<>();
+        Map<String, Object> assumed = new HashMap<>();
+        for (Map.Entry<String, Object> entry : currentParams.entrySet()) {
+            if (newlyExtracted.containsKey(entry.getKey())) {
+                userProvided.put(entry.getKey(), entry.getValue());
+            } else {
+                assumed.put(entry.getKey(), entry.getValue());
+            }
+        }
 
         // RAG Context & AI Explanation
         List<RagKnowledgeDocument> contextDocs = ragKnowledgeService.retrieveRelevantKnowledge(query, 2);
@@ -246,13 +283,14 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
 
         // Synthesize Health Verdict & Key Metrics
         AiOrchestrationResponseDto synth = orchestrate(new AiOrchestrationRequestDto(query));
-        
+
         AiChatResponseDto.ChatMessageDto message = new AiChatResponseDto.ChatMessageDto();
         message.setId(UUID.randomUUID().toString());
         message.setSender("assistant");
         message.setTimestamp(new java.text.SimpleDateFormat("HH:mm").format(new Date()));
         message.setText(explanation);
         message.setIntentCode(context.getIntentCode());
+        message.setQueryType(queryType);
         message.setRecommendedCalculatorId(context.getRecommendedCalculatorId());
         message.setCalculatorName(toolName);
         message.setDecisionVerdict(synth.getDecisionVerdict());
@@ -261,12 +299,24 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         message.setKeyMetrics(synth.getKeyMetrics());
         message.setComparisonData(comparison);
         message.setExtractedParameters(currentParams);
+        message.setUserProvidedParams(userProvided);
+        message.setAssumedParams(assumed);
         message.setFollowUpQuestions(synth.getFollowUpQuestions());
         message.setRetrievedContext(snippets);
 
         context.setLastCalculationResult(synth.getCalculationResult());
 
         return new AiChatResponseDto(convId, message, context);
+    }
+
+    private String formatVal(Object val) {
+        if (val instanceof Number) {
+            double d = ((Number) val).doubleValue();
+            if (d >= 100000) return String.format("₹%.1f Lakh", d / 100000.0);
+            if (d >= 1000) return String.format("₹%,.0f", d);
+            return String.format("%.0f", d);
+        }
+        return String.valueOf(val);
     }
 
     private AiChatResponseDto.ComparisonDataDto buildComparisonScenario(String query, Map<String, Object> currentParams, Map<String, Object> newlyExtracted) {
@@ -291,8 +341,8 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         metricsB.put("Monthly EMI", String.format("₹%,.0f", resB.getMonthlyEmi()));
         metricsB.put("Total Interest", String.format("₹%,.0f", resB.getTotalInterest()));
 
-        comp.setScenarioA(new AiChatResponseDto.ScenarioDto(String.format("Option A (₹%,.0f)", carA), metricsA));
-        comp.setScenarioB(new AiChatResponseDto.ScenarioDto(String.format("Option B (₹%,.0f)", carB), metricsB));
+        comp.setScenarioA(new AiChatResponseDto.ScenarioDto(String.format("Option A (₹%,.1fL)", carA / 100000.0), metricsA));
+        comp.setScenarioB(new AiChatResponseDto.ScenarioDto(String.format("Option B (₹%,.1fL)", carB / 100000.0), metricsB));
 
         double emiDiff = resA.getMonthlyEmi() - resB.getMonthlyEmi();
         double interestDiff = resA.getTotalInterest() - resB.getTotalInterest();
@@ -310,7 +360,7 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         Map<String, Object> map = new HashMap<>();
         if (query == null) return map;
 
-        // Parse Lakhs (e.g., "1.2 Lakh", "25 Lakh", "15 Lakh", "5L")
+        // Parse Lakhs (e.g., "1.2 Lakh", "25 Lakh", "15 Lakh", "5L", "₹5 lakh")
         Pattern lakhPattern = Pattern.compile("(?i)(\\d+(?:\\.\\d+)?)\\s*(?:lakh|lakhs|l)\\b");
         Matcher lakhMatcher = lakhPattern.matcher(query);
         List<Double> lakhsFound = new ArrayList<>();
@@ -320,7 +370,7 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
             } catch (Exception ignored) {}
         }
 
-        // Parse Thousands (e.g. "30,000", "30k")
+        // Parse Thousands (e.g. "30,000", "30k", "50k")
         Pattern kPattern = Pattern.compile("(?i)(\\d+(?:\\.\\d+)?)\\s*(?:k|thousand|thousands)\\b");
         Matcher kMatcher = kPattern.matcher(query);
         List<Double> thousandsFound = new ArrayList<>();
@@ -334,11 +384,18 @@ public class AiOrchestratorServiceImpl implements AiOrchestratorService {
         Pattern yrPattern = Pattern.compile("(?i)(\\d+)\\s*(?:years|year|yr|yrs)\\b");
         Matcher yrMatcher = yrPattern.matcher(query);
         if (yrMatcher.find()) {
-            map.put("tenureValue", Integer.parseInt(yrMatcher.group(1)));
+            int yrs = Integer.parseInt(yrMatcher.group(1));
+            map.put("tenureValue", yrs);
+            map.put("tenureYears", yrs);
         }
 
         if (intent == AiIntent.CAR_AFFORDABILITY || intent == AiIntent.LOAN_AFFORDABILITY) {
-            if (lakhsFound.size() >= 2) {
+            if (lakhsFound.size() >= 3) {
+                map.put("monthlyIncome", lakhsFound.get(0));
+                map.put("principal", lakhsFound.get(1));
+                map.put("carPrice", lakhsFound.get(1));
+                map.put("downPayment", lakhsFound.get(2));
+            } else if (lakhsFound.size() == 2) {
                 map.put("monthlyIncome", lakhsFound.get(0));
                 map.put("principal", lakhsFound.get(1));
                 map.put("carPrice", lakhsFound.get(1));

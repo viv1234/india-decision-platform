@@ -38,14 +38,26 @@ public class AiChatResponseDto {
         private String decisionVerdict;
         private String badgeColor;
         private String changesSummary;
+        private String queryType;
         private Map<String, String> keyMetrics = new HashMap<>();
         private ComparisonDataDto comparisonData;
         private Object calculationResult;
         private Map<String, Object> extractedParameters = new HashMap<>();
+        private Map<String, Object> userProvidedParams = new HashMap<>();
+        private Map<String, Object> assumedParams = new HashMap<>();
         private List<String> followUpQuestions = new ArrayList<>();
         private List<String> retrievedContext = new ArrayList<>();
 
         public ChatMessageDto() {}
+
+        public String getQueryType() { return queryType; }
+        public void setQueryType(String queryType) { this.queryType = queryType; }
+
+        public Map<String, Object> getUserProvidedParams() { return userProvidedParams; }
+        public void setUserProvidedParams(Map<String, Object> userProvidedParams) { this.userProvidedParams = userProvidedParams; }
+
+        public Map<String, Object> getAssumedParams() { return assumedParams; }
+        public void setAssumedParams(Map<String, Object> assumedParams) { this.assumedParams = assumedParams; }
 
         public String getId() { return id; }
         public void setId(String id) { this.id = id; }
