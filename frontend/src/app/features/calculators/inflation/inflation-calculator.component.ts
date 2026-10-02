@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -10,6 +10,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   selector: 'app-inflation-calculator',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, SimpleChartComponent, DisclaimerNoticeComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -27,10 +28,11 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
           <form [formGroup]="inflationForm" (ngSubmit)="calculate()" class="space-y-4">
             
             <div>
-              <label class="form-label">Current Expenses / Capital</label>
+              <label class="form-label" for="currentAmount">Current Expenses / Capital</label>
               <div class="relative">
                 <span class="rupee-prefix">₹</span>
                 <input
+                  id="currentAmount"
                   type="number"
                   formControlName="currentAmount"
                   class="form-input input-with-rupee"
@@ -40,8 +42,9 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <div>
-              <label class="form-label">Annual Inflation Rate (%)</label>
+              <label class="form-label" for="inflationRate">Annual Inflation Rate (%)</label>
               <input
+                id="inflationRate"
                 type="number"
                 step="0.1"
                 formControlName="inflationRate"
@@ -51,8 +54,9 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <div>
-              <label class="form-label">Number of Years</label>
+              <label class="form-label" for="years">Number of Years</label>
               <input
+                id="years"
                 type="number"
                 formControlName="years"
                 class="form-input"
@@ -60,45 +64,50 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               />
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate Purchasing Power</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Calculate Purchasing Power</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
-        <div class="lg:col-span-7 space-y-6">
-          <div *ngIf="result" class="space-y-6">
-            
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="bg-red-600 text-white rounded-2xl p-5 shadow-lg shadow-red-600/20">
-                <span class="text-xs uppercase font-bold text-red-200 tracking-wider">Future Cost Equivalent</span>
-                <div class="text-2xl font-extrabold mt-1">₹{{ result.futureEquivalentAmount | number:'1.0-0' }}</div>
+        <div class="lg:col-span-7 space-y-6" aria-live="polite">
+          @if (result(); as res) {
+            <div class="space-y-6">
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-red-600 text-white rounded-2xl p-5 shadow-lg shadow-red-600/20">
+                  <span class="text-xs uppercase font-bold text-red-200 tracking-wider">Future Cost Equivalent</span>
+                  <div class="text-2xl font-extrabold mt-1">₹{{ res.futureEquivalentAmount | number:'1.0-0' }}</div>
+                </div>
+
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Present Purchasing Value</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">₹{{ res.purchasingPowerEquivalent | number:'1.0-0' }}</div>
+                </div>
+
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Purchasing Power Loss</span>
+                  <div class="text-xl font-bold text-red-600 mt-1">{{ res.purchasingPowerLossPercentage | number:'1.1-1' }}%</div>
+                </div>
               </div>
 
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Present Purchasing Value</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ result.purchasingPowerEquivalent | number:'1.0-0' }}</div>
-              </div>
+              <app-simple-chart
+                title="Purchasing Power Erosion Impact"
+                type="bar"
+                [barItems]="[
+                  { label: 'Current Purchasing Power', displayValue: '₹' + (res.currentAmount | number:'1.0-0'), percentage: 100, colorClass: 'bg-blue-600' },
+                  { label: 'Purchasing Value in ' + res.years + ' Years', displayValue: '₹' + (res.purchasingPowerEquivalent | number:'1.0-0'), percentage: (res.purchasingPowerEquivalent / res.currentAmount) * 100, colorClass: 'bg-red-500' }
+                ]"
+              ></app-simple-chart>
 
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Purchasing Power Loss</span>
-                <div class="text-xl font-bold text-red-600 mt-1">{{ result.purchasingPowerLossPercentage | number:'1.1-1' }}%</div>
-              </div>
             </div>
+          }
 
-            <app-simple-chart
-              title="Purchasing Power Erosion Impact"
-              type="bar"
-              [barItems]="[
-                { label: 'Current Purchasing Power', displayValue: '₹' + (result.currentAmount | number:'1.0-0'), percentage: 100, colorClass: 'bg-blue-600' },
-                { label: 'Purchasing Value in ' + result.years + ' Years', displayValue: '₹' + (result.purchasingPowerEquivalent | number:'1.0-0'), percentage: (result.purchasingPowerEquivalent / result.currentAmount) * 100, colorClass: 'bg-red-500' }
-              ]"
-            ></app-simple-chart>
-
-          </div>
-
-          <app-disclaimer-notice [customText]="result?.disclaimer || 'Calculated figures are estimates based on constant historical compounding.'"></app-disclaimer-notice>
+          <app-disclaimer-notice [customText]="result()?.disclaimer || 'Calculated figures are estimates based on constant historical compounding.'"></app-disclaimer-notice>
         </div>
 
       </div>
@@ -106,11 +115,12 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class InflationCalculatorComponent implements OnInit {
-  inflationForm!: FormGroup;
-  result: InflationResponse | null = null;
-  loading: boolean = false;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  inflationForm!: FormGroup;
+  result = signal<InflationResponse | null>(null);
+  loading = signal<boolean>(false);
 
   ngOnInit(): void {
     this.inflationForm = this.fb.group({
@@ -124,16 +134,17 @@ export class InflationCalculatorComponent implements OnInit {
 
   calculate(): void {
     if (this.inflationForm.invalid) return;
-    this.loading = true;
+    this.loading.set(true);
 
     this.calculatorService.calculateInflation(this.inflationForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: () => {
-        this.loading = false;
+        this.loading.set(false);
       }
     });
   }
 }
+

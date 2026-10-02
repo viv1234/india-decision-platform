@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -9,6 +9,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   selector: 'app-discount-calculator',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, DisclaimerNoticeComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -26,10 +27,11 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
           <form [formGroup]="discountForm" (ngSubmit)="calculate()" class="space-y-4">
             
             <div>
-              <label class="form-label">Original Price</label>
+              <label class="form-label" for="originalPrice">Original Price</label>
               <div class="relative">
                 <span class="rupee-prefix">₹</span>
                 <input
+                  id="originalPrice"
                   type="number"
                   formControlName="originalPrice"
                   class="form-input input-with-rupee"
@@ -39,19 +41,21 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <div>
-              <label class="form-label">Discount Percentage (%)</label>
+              <label class="form-label" for="discountPercentage">Discount Percentage (%)</label>
               <div class="flex items-center gap-2 mb-2">
-                <button
-                  type="button"
-                  *ngFor="let pct of discountPresets"
-                  (click)="setDiscount(pct)"
-                  class="px-3 py-1 text-xs font-bold rounded-lg border transition-all"
-                  [ngClass]="discountForm.get('discountPercentage')?.value === pct ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-700 border-slate-200'"
-                >
-                  {{ pct }}% Off
-                </button>
+                @for (pct of discountPresets; track pct) {
+                  <button
+                    type="button"
+                    (click)="setDiscount(pct)"
+                    class="px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer"
+                    [ngClass]="discountForm.get('discountPercentage')?.value === pct ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                  >
+                    {{ pct }}% Off
+                  </button>
+                }
               </div>
               <input
+                id="discountPercentage"
                 type="number"
                 step="0.5"
                 formControlName="discountPercentage"
@@ -60,33 +64,38 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               />
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate Savings</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Calculate Savings</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
-        <div class="lg:col-span-6 space-y-6">
-          <div *ngIf="result" class="space-y-4">
-            
-            <div class="bg-emerald-600 text-white rounded-2xl p-6 shadow-lg shadow-emerald-600/20 text-center">
-              <span class="text-xs uppercase font-extrabold text-emerald-200 tracking-wider">Final Price After Discount</span>
-              <div class="text-4xl font-extrabold mt-1">₹{{ result.finalPrice | number:'1.2-2' }}</div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div class="card-saas p-4 text-center">
-                <span class="text-xs uppercase font-bold text-slate-500">Original Price</span>
-                <div class="text-lg font-bold text-slate-900 mt-1">₹{{ result.originalPrice | number:'1.2-2' }}</div>
+        <div class="lg:col-span-6 space-y-6" aria-live="polite">
+          @if (result(); as res) {
+            <div class="space-y-4">
+              
+              <div class="bg-emerald-600 text-white rounded-2xl p-6 shadow-lg shadow-emerald-600/20 text-center">
+                <span class="text-xs uppercase font-extrabold text-emerald-200 tracking-wider">Final Price After Discount</span>
+                <div class="text-4xl font-extrabold mt-1">₹{{ res.finalPrice | number:'1.2-2' }}</div>
               </div>
-              <div class="card-saas p-4 text-center">
-                <span class="text-xs uppercase font-bold text-emerald-600">Total Money Saved</span>
-                <div class="text-lg font-bold text-emerald-600 mt-1">₹{{ result.amountSaved | number:'1.2-2' }}</div>
-              </div>
-            </div>
 
-          </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="card-saas p-4 text-center">
+                  <span class="text-xs uppercase font-bold text-slate-500">Original Price</span>
+                  <div class="text-lg font-bold text-slate-900 mt-1">₹{{ res.originalPrice | number:'1.2-2' }}</div>
+                </div>
+                <div class="card-saas p-4 text-center">
+                  <span class="text-xs uppercase font-bold text-emerald-600">Total Money Saved</span>
+                  <div class="text-lg font-bold text-emerald-600 mt-1">₹{{ res.amountSaved | number:'1.2-2' }}</div>
+                </div>
+              </div>
+
+            </div>
+          }
 
           <app-disclaimer-notice></app-disclaimer-notice>
         </div>
@@ -96,12 +105,13 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class DiscountCalculatorComponent implements OnInit {
-  discountForm!: FormGroup;
-  result: DiscountResponse | null = null;
-  loading: boolean = false;
-  discountPresets = [10, 15, 20, 25, 50];
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  discountForm!: FormGroup;
+  result = signal<DiscountResponse | null>(null);
+  loading = signal<boolean>(false);
+  discountPresets = [10, 15, 20, 25, 50];
 
   ngOnInit(): void {
     this.discountForm = this.fb.group({
@@ -119,16 +129,17 @@ export class DiscountCalculatorComponent implements OnInit {
 
   calculate(): void {
     if (this.discountForm.invalid) return;
-    this.loading = true;
+    this.loading.set(true);
 
     this.calculatorService.calculateDiscount(this.discountForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: () => {
-        this.loading = false;
+        this.loading.set(false);
       }
     });
   }
 }
+

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -9,6 +9,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   selector: 'app-fuel-calculator',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, DisclaimerNoticeComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -26,8 +27,9 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
           <form [formGroup]="fuelForm" (ngSubmit)="calculate()" class="space-y-4">
             
             <div>
-              <label class="form-label">Total Distance (km)</label>
+              <label class="form-label" for="distanceKm">Total Distance (km)</label>
               <input
+                id="distanceKm"
                 type="number"
                 formControlName="distanceKm"
                 class="form-input"
@@ -36,8 +38,9 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <div>
-              <label class="form-label">Vehicle Mileage (km / Litre)</label>
+              <label class="form-label" for="vehicleMileageKmpl">Vehicle Mileage (km / Litre)</label>
               <input
+                id="vehicleMileageKmpl"
                 type="number"
                 step="0.5"
                 formControlName="vehicleMileageKmpl"
@@ -47,10 +50,11 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <div>
-              <label class="form-label">Fuel Price (₹ / Litre)</label>
+              <label class="form-label" for="fuelPricePerLitre">Fuel Price (₹ / Litre)</label>
               <div class="relative">
                 <span class="rupee-prefix">₹</span>
                 <input
+                  id="fuelPricePerLitre"
                   type="number"
                   step="0.5"
                   formControlName="fuelPricePerLitre"
@@ -61,33 +65,38 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               <span class="text-[11px] text-slate-500 mt-1 block">Manual entry (No live API fetching required).</span>
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate Fuel Expense</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Calculate Fuel Expense</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
-        <div class="lg:col-span-6 space-y-6">
-          <div *ngIf="result" class="space-y-4">
-            
-            <div class="bg-blue-600 text-white rounded-2xl p-6 shadow-lg shadow-blue-600/20 text-center">
-              <span class="text-xs uppercase font-extrabold text-blue-200 tracking-wider">Total Estimated Trip Cost</span>
-              <div class="text-4xl font-extrabold mt-1">₹{{ result.estimatedFuelCost | number:'1.2-2' }}</div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div class="card-saas p-4 text-center">
-                <span class="text-xs uppercase font-bold text-slate-500">Fuel Required</span>
-                <div class="text-lg font-bold text-slate-900 mt-1">{{ result.fuelRequiredLitres | number:'1.1-2' }} L</div>
+        <div class="lg:col-span-6 space-y-6" aria-live="polite">
+          @if (result(); as res) {
+            <div class="space-y-4">
+              
+              <div class="bg-blue-600 text-white rounded-2xl p-6 shadow-lg shadow-blue-600/20 text-center">
+                <span class="text-xs uppercase font-extrabold text-blue-200 tracking-wider">Total Estimated Trip Cost</span>
+                <div class="text-4xl font-extrabold mt-1">₹{{ res.estimatedFuelCost | number:'1.2-2' }}</div>
               </div>
-              <div class="card-saas p-4 text-center">
-                <span class="text-xs uppercase font-bold text-slate-500">Expense Per Km</span>
-                <div class="text-lg font-bold text-slate-900 mt-1">₹{{ result.costPerKm | number:'1.2-2' }} / km</div>
-              </div>
-            </div>
 
-          </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="card-saas p-4 text-center">
+                  <span class="text-xs uppercase font-bold text-slate-500">Fuel Required</span>
+                  <div class="text-lg font-bold text-slate-900 mt-1">{{ res.fuelRequiredLitres | number:'1.1-2' }} L</div>
+                </div>
+                <div class="card-saas p-4 text-center">
+                  <span class="text-xs uppercase font-bold text-slate-500">Expense Per Km</span>
+                  <div class="text-lg font-bold text-slate-900 mt-1">₹{{ res.costPerKm | number:'1.2-2' }} / km</div>
+                </div>
+              </div>
+
+            </div>
+          }
 
           <app-disclaimer-notice customText="Fuel consumption varies based on traffic conditions, driving style and vehicle condition. Figures are estimates."></app-disclaimer-notice>
         </div>
@@ -97,11 +106,12 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class FuelCalculatorComponent implements OnInit {
-  fuelForm!: FormGroup;
-  result: FuelCostResponse | null = null;
-  loading: boolean = false;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  fuelForm!: FormGroup;
+  result = signal<FuelCostResponse | null>(null);
+  loading = signal<boolean>(false);
 
   ngOnInit(): void {
     this.fuelForm = this.fb.group({
@@ -115,16 +125,17 @@ export class FuelCalculatorComponent implements OnInit {
 
   calculate(): void {
     if (this.fuelForm.invalid) return;
-    this.loading = true;
+    this.loading.set(true);
 
     this.calculatorService.calculateFuelCost(this.fuelForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: () => {
-        this.loading = false;
+        this.loading.set(false);
       }
     });
   }
 }
+

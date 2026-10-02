@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -10,6 +10,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   selector: 'app-fd-calculator',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, SimpleChartComponent, DisclaimerNoticeComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -79,52 +80,59 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               </select>
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate Maturity Amount</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4 cursor-pointer">
+              @if (!loading()) {
+                <span>Calculate Maturity Amount</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
         <!-- Result Section -->
-        <div class="lg:col-span-7 space-y-6">
+        <div class="lg:col-span-7 space-y-6" aria-live="polite">
           
-          <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
-            {{ error }}
-          </div>
+          @if (error()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
+              {{ error() }}
+            </div>
+          }
 
-          <div *ngIf="result" class="space-y-6">
+          @if (result(); as res) {
+            <div class="space-y-6 animate-fade-in">
             
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="bg-blue-600 text-white rounded-2xl p-5 shadow-lg shadow-blue-600/20">
                 <span class="text-xs uppercase font-bold text-blue-200 tracking-wider">Maturity Amount</span>
-                <div class="text-2xl font-extrabold mt-1">₹{{ result.maturityAmount | number:'1.0-0' }}</div>
+                <div class="text-2xl font-extrabold mt-1">₹{{ res.maturityAmount | number:'1.0-0' }}</div>
               </div>
 
               <div class="card-saas p-5">
                 <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Principal Deposited</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ result.principal | number:'1.0-0' }}</div>
+                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ res.principal | number:'1.0-0' }}</div>
               </div>
 
               <div class="card-saas p-5">
                 <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Total Interest Earned</span>
-                <div class="text-xl font-bold text-blue-600 mt-1">₹{{ result.interestEarned | number:'1.0-0' }}</div>
+                <div class="text-xl font-bold text-blue-600 mt-1">₹{{ res.interestEarned | number:'1.0-0' }}</div>
               </div>
             </div>
 
             <app-simple-chart
               title="Deposit vs Guaranteed Interest"
               type="donut"
-              [pct1]="round((result.principal / result.maturityAmount) * 100)"
+              [pct1]="round((res.principal / res.maturityAmount) * 100)"
               centerLabel="Yield"
-              [centerValue]="round((result.interestEarned / result.principal) * 100) + '% Total'"
+              [centerValue]="round((res.interestEarned / res.principal) * 100) + '% Total'"
               [legendItems]="[
-                { label: 'Original Principal', value: '₹' + (result.principal | number:'1.0-0'), percentage: round((result.principal / result.maturityAmount) * 100), colorClass: 'bg-blue-600' },
-                { label: 'Compounded Interest', value: '₹' + (result.interestEarned | number:'1.0-0'), percentage: round((result.interestEarned / result.maturityAmount) * 100), colorClass: 'bg-emerald-500' }
+                { label: 'Original Principal', value: '₹' + (res.principal | number:'1.0-0'), percentage: round((res.principal / res.maturityAmount) * 100), colorClass: 'bg-blue-600' },
+                { label: 'Compounded Interest', value: '₹' + (res.interestEarned | number:'1.0-0'), percentage: round((res.interestEarned / res.maturityAmount) * 100), colorClass: 'bg-emerald-500' }
               ]"
             ></app-simple-chart>
 
           </div>
+          }
 
           <app-disclaimer-notice></app-disclaimer-notice>
 
@@ -135,12 +143,13 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class FdCalculatorComponent implements OnInit {
-  fdForm!: FormGroup;
-  result: FdResponse | null = null;
-  loading: boolean = false;
-  error: string | null = null;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  fdForm!: FormGroup;
+  readonly result = signal<FdResponse | null>(null);
+  readonly loading = signal<boolean>(false);
+  readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
     this.fdForm = this.fb.group({
@@ -168,17 +177,17 @@ export class FdCalculatorComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
 
     this.calculatorService.calculateFd(this.fdForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = err?.error?.message || 'Failed to calculate FD maturity.';
-        this.loading = false;
+        this.error.set(err?.error?.message || 'Failed to calculate FD maturity.');
+        this.loading.set(false);
       }
     });
   }

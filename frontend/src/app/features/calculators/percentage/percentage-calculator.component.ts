@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -9,6 +9,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   selector: 'app-percentage-calculator',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, DisclaimerNoticeComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -29,23 +30,25 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
           <div class="space-y-2">
             <label class="form-label">Calculation Mode</label>
             <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                *ngFor="let m of modes"
-                (click)="setMode(m.key)"
-                class="py-2 px-3 text-xs font-bold rounded-lg border transition-all text-left"
-                [ngClass]="pctForm.get('mode')?.value === m.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
-              >
-                {{ m.label }}
-              </button>
+              @for (m of modes; track m.key) {
+                <button
+                  type="button"
+                  (click)="setMode(m.key)"
+                  class="py-2 px-3 text-xs font-bold rounded-lg border transition-all text-left"
+                  [ngClass]="pctForm.get('mode')?.value === m.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                >
+                  {{ m.label }}
+                </button>
+              }
             </div>
           </div>
 
           <form [formGroup]="pctForm" (ngSubmit)="calculate()" class="space-y-4 pt-2">
             
             <div>
-              <label class="form-label">{{ getXLabel() }}</label>
+              <label class="form-label" for="valueX">{{ getXLabel() }}</label>
               <input
+                id="valueX"
                 type="number"
                 step="any"
                 formControlName="valueX"
@@ -55,8 +58,9 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
             </div>
 
             <div>
-              <label class="form-label">{{ getYLabel() }}</label>
+              <label class="form-label" for="valueY">{{ getYLabel() }}</label>
               <input
+                id="valueY"
                 type="number"
                 step="any"
                 formControlName="valueY"
@@ -65,27 +69,34 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               />
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate Percentage</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Calculate Percentage</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
         <!-- Result -->
-        <div class="lg:col-span-6 space-y-6">
+        <div class="lg:col-span-6 space-y-6" aria-live="polite">
           
-          <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
-            {{ error }}
-          </div>
+          @if (error()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
+              {{ error() }}
+            </div>
+          }
 
-          <div *ngIf="result" class="card-saas p-8 text-center space-y-4 bg-gradient-to-br from-white to-blue-50/50">
-            <span class="text-xs uppercase font-extrabold text-blue-600 tracking-wider">Result Value</span>
-            <div class="text-4xl font-extrabold text-slate-900">{{ result.result | number:'1.0-4' }}</div>
-            <p class="text-sm font-semibold text-slate-700 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              {{ result.explanation }}
-            </p>
-          </div>
+          @if (result(); as res) {
+            <div class="card-saas p-8 text-center space-y-4 bg-gradient-to-br from-white to-blue-50/50">
+              <span class="text-xs uppercase font-extrabold text-blue-600 tracking-wider">Result Value</span>
+              <div class="text-4xl font-extrabold text-slate-900">{{ res.result | number:'1.0-4' }}</div>
+              <p class="text-sm font-semibold text-slate-700 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                {{ res.explanation }}
+              </p>
+            </div>
+          }
 
           <app-disclaimer-notice></app-disclaimer-notice>
 
@@ -96,10 +107,13 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class PercentageCalculatorComponent implements OnInit {
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
+
   pctForm!: FormGroup;
-  result: PercentageResponse | null = null;
-  loading: boolean = false;
-  error: string | null = null;
+  result = signal<PercentageResponse | null>(null);
+  loading = signal<boolean>(false);
+  error = signal<string | null>(null);
 
   modes = [
     { key: 'PERCENTAGE_OF', label: 'X% of Y' },
@@ -107,8 +121,6 @@ export class PercentageCalculatorComponent implements OnInit {
     { key: 'PERCENTAGE_DECREASE', label: 'Percentage Decrease' },
     { key: 'PERCENTAGE_DIFFERENCE', label: 'Percentage Difference' }
   ];
-
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
 
   ngOnInit(): void {
     this.pctForm = this.fb.group({
@@ -144,18 +156,19 @@ export class PercentageCalculatorComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
 
     this.calculatorService.calculatePercentage(this.pctForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = err?.error?.message || 'Failed to calculate percentage.';
-        this.loading = false;
+        this.error.set(err?.error?.message || 'Failed to calculate percentage.');
+        this.loading.set(false);
       }
     });
   }
 }
+

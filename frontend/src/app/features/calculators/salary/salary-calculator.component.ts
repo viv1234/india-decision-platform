@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CalculatorService } from '../../../core/services/calculator.service';
@@ -10,6 +10,7 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   selector: 'app-salary-calculator',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, SimpleChartComponent, DisclaimerNoticeComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -33,10 +34,11 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
           <form [formGroup]="salaryForm" (ngSubmit)="calculate()" class="space-y-4">
             
             <div>
-              <label class="form-label">Annual Cost to Company (CTC)</label>
+              <label class="form-label" for="annualCtc">Annual Cost to Company (CTC)</label>
               <div class="relative">
                 <span class="rupee-prefix">₹</span>
                 <input
+                  id="annualCtc"
                   type="number"
                   formControlName="annualCtc"
                   class="form-input input-with-rupee"
@@ -48,10 +50,11 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="form-label">Prof. Tax (Monthly)</label>
+                <label class="form-label" for="professionalTaxMonthly">Prof. Tax (Monthly)</label>
                 <div class="relative">
                   <span class="rupee-prefix">₹</span>
                   <input
+                    id="professionalTaxMonthly"
                     type="number"
                     formControlName="professionalTaxMonthly"
                     class="form-input input-with-rupee"
@@ -60,10 +63,11 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               </div>
 
               <div>
-                <label class="form-label">Other Deductions</label>
+                <label class="form-label" for="otherDeductionsMonthly">Other Deductions</label>
                 <div class="relative">
                   <span class="rupee-prefix">₹</span>
                   <input
+                    id="otherDeductionsMonthly"
                     type="number"
                     formControlName="otherDeductionsMonthly"
                     class="form-input input-with-rupee"
@@ -73,74 +77,81 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
               </div>
             </div>
 
-            <button type="submit" [disabled]="loading" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
-              <span *ngIf="!loading">Calculate Take-Home Salary</span>
-              <span *ngIf="loading">Calculating...</span>
+            <button type="submit" [disabled]="loading()" class="btn-primary w-full justify-center pt-3 pb-3 mt-4">
+              @if (!loading()) {
+                <span>Calculate Take-Home Salary</span>
+              } @else {
+                <span>Calculating...</span>
+              }
             </button>
           </form>
         </div>
 
         <!-- Result Section -->
-        <div class="lg:col-span-7 space-y-6">
+        <div class="lg:col-span-7 space-y-6" aria-live="polite">
           
-          <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
-            {{ error }}
-          </div>
-
-          <div *ngIf="result" class="space-y-6">
-            
-            <!-- Result Primary Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="bg-purple-700 text-white rounded-2xl p-5 shadow-lg shadow-purple-700/20">
-                <span class="text-xs uppercase font-bold text-purple-200 tracking-wider">Monthly In-Hand</span>
-                <div class="text-2xl font-extrabold mt-1">₹{{ result.estimatedMonthlyInHand | number:'1.0-0' }}</div>
-              </div>
-
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Monthly Gross</span>
-                <div class="text-xl font-bold text-slate-900 mt-1">₹{{ result.monthlyGross | number:'1.0-0' }}</div>
-              </div>
-
-              <div class="card-saas p-5">
-                <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Monthly Deductions</span>
-                <div class="text-xl font-bold text-red-600 mt-1">₹{{ result.totalMonthlyDeductions | number:'1.0-0' }}</div>
-              </div>
+          @if (error()) {
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl">
+              {{ error() }}
             </div>
+          }
 
-            <!-- Breakdown Table -->
-            <div class="card-saas p-6 space-y-3">
-              <h4 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Annual & Monthly Breakdown</h4>
-              <div class="flex justify-between text-xs py-1 border-b border-slate-100">
-                <span class="text-slate-600">Annual Gross CTC:</span>
-                <span class="font-bold text-slate-900">₹{{ result.annualCtc | number:'1.0-0' }}</span>
+          @if (result(); as res) {
+            <div class="space-y-6">
+              
+              <!-- Result Primary Cards -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-purple-700 text-white rounded-2xl p-5 shadow-lg shadow-purple-700/20">
+                  <span class="text-xs uppercase font-bold text-purple-200 tracking-wider">Monthly In-Hand</span>
+                  <div class="text-2xl font-extrabold mt-1">₹{{ res.estimatedMonthlyInHand | number:'1.0-0' }}</div>
+                </div>
+
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Monthly Gross</span>
+                  <div class="text-xl font-bold text-slate-900 mt-1">₹{{ res.monthlyGross | number:'1.0-0' }}</div>
+                </div>
+
+                <div class="card-saas p-5">
+                  <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">Monthly Deductions</span>
+                  <div class="text-xl font-bold text-red-600 mt-1">₹{{ res.totalMonthlyDeductions | number:'1.0-0' }}</div>
+                </div>
               </div>
-              <div class="flex justify-between text-xs py-1 border-b border-slate-100">
-                <span class="text-slate-600">Employee Provident Fund (PF):</span>
-                <span class="font-bold text-slate-900">₹{{ result.monthlyPfDeduction | number:'1.0-0' }} / mo</span>
+
+              <!-- Breakdown Table -->
+              <div class="card-saas p-6 space-y-3">
+                <h4 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Annual & Monthly Breakdown</h4>
+                <div class="flex justify-between text-xs py-1 border-b border-slate-100">
+                  <span class="text-slate-600">Annual Gross CTC:</span>
+                  <span class="font-bold text-slate-900">₹{{ res.annualCtc | number:'1.0-0' }}</span>
+                </div>
+                <div class="flex justify-between text-xs py-1 border-b border-slate-100">
+                  <span class="text-slate-600">Employee Provident Fund (PF):</span>
+                  <span class="font-bold text-slate-900">₹{{ res.monthlyPfDeduction | number:'1.0-0' }} / mo</span>
+                </div>
+                <div class="flex justify-between text-xs py-1 border-b border-slate-100">
+                  <span class="text-slate-600">Professional Tax (PT):</span>
+                  <span class="font-bold text-slate-900">₹{{ res.monthlyProfessionalTax | number:'1.0-0' }} / mo</span>
+                </div>
+                <div class="flex justify-between text-xs py-1 font-bold pt-2 text-purple-700">
+                  <span>Estimated Annual Take-Home:</span>
+                  <span>₹{{ res.annualInHand | number:'1.0-0' }}</span>
+                </div>
               </div>
-              <div class="flex justify-between text-xs py-1 border-b border-slate-100">
-                <span class="text-slate-600">Professional Tax (PT):</span>
-                <span class="font-bold text-slate-900">₹{{ result.monthlyProfessionalTax | number:'1.0-0' }} / mo</span>
-              </div>
-              <div class="flex justify-between text-xs py-1 font-bold pt-2 text-purple-700">
-                <span>Estimated Annual Take-Home:</span>
-                <span>₹{{ result.annualInHand | number:'1.0-0' }}</span>
-              </div>
+
+              <app-simple-chart
+                title="Gross CTC vs Take-Home Salary Composition"
+                type="bar"
+                [barItems]="[
+                  { label: 'Take-Home Salary (In-Hand)', displayValue: '₹' + (res.estimatedMonthlyInHand | number:'1.0-0') + '/mo', percentage: (res.estimatedMonthlyInHand / res.monthlyGross) * 100, colorClass: 'bg-purple-600' },
+                  { label: 'Provident Fund (PF)', displayValue: '₹' + (res.monthlyPfDeduction | number:'1.0-0') + '/mo', percentage: (res.monthlyPfDeduction / res.monthlyGross) * 100, colorClass: 'bg-blue-500' },
+                  { label: 'Professional Tax & Other', displayValue: '₹' + (res.monthlyProfessionalTax + res.monthlyOtherDeductions | number:'1.0-0') + '/mo', percentage: ((res.monthlyProfessionalTax + res.monthlyOtherDeductions) / res.monthlyGross) * 100, colorClass: 'bg-amber-500' }
+                ]"
+              ></app-simple-chart>
+
             </div>
+          }
 
-            <app-simple-chart
-              title="Gross CTC vs Take-Home Salary Composition"
-              type="bar"
-              [barItems]="[
-                { label: 'Take-Home Salary (In-Hand)', displayValue: '₹' + (result.estimatedMonthlyInHand | number:'1.0-0') + '/mo', percentage: (result.estimatedMonthlyInHand / result.monthlyGross) * 100, colorClass: 'bg-purple-600' },
-                { label: 'Provident Fund (PF)', displayValue: '₹' + (result.monthlyPfDeduction | number:'1.0-0') + '/mo', percentage: (result.monthlyPfDeduction / result.monthlyGross) * 100, colorClass: 'bg-blue-500' },
-                { label: 'Professional Tax & Other', displayValue: '₹' + (result.monthlyProfessionalTax + result.monthlyOtherDeductions | number:'1.0-0') + '/mo', percentage: ((result.monthlyProfessionalTax + result.monthlyOtherDeductions) / result.monthlyGross) * 100, colorClass: 'bg-amber-500' }
-              ]"
-            ></app-simple-chart>
-
-          </div>
-
-          <app-disclaimer-notice [customText]="result?.disclaimer || 'Estimated calculation. Actual salary depends on employer structure, tax regime and applicable rules.'"></app-disclaimer-notice>
+          <app-disclaimer-notice [customText]="result()?.disclaimer || 'Estimated calculation. Actual salary depends on employer structure, tax regime and applicable rules.'"></app-disclaimer-notice>
 
         </div>
 
@@ -149,12 +160,13 @@ import { DisclaimerNoticeComponent } from '../../../shared/components/disclaimer
   `
 })
 export class SalaryCalculatorComponent implements OnInit {
-  salaryForm!: FormGroup;
-  result: SalaryResponse | null = null;
-  loading: boolean = false;
-  error: string | null = null;
+  private fb = inject(FormBuilder);
+  private calculatorService = inject(CalculatorService);
 
-  constructor(private fb: FormBuilder, private calculatorService: CalculatorService) {}
+  salaryForm!: FormGroup;
+  result = signal<SalaryResponse | null>(null);
+  loading = signal<boolean>(false);
+  error = signal<string | null>(null);
 
   ngOnInit(): void {
     this.salaryForm = this.fb.group({
@@ -177,17 +189,17 @@ export class SalaryCalculatorComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
 
     this.calculatorService.calculateSalary(this.salaryForm.value).subscribe({
       next: (res) => {
-        this.result = res;
-        this.loading = false;
+        this.result.set(res);
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = err?.error?.message || 'Failed to calculate salary breakdown.';
-        this.loading = false;
+        this.error.set(err?.error?.message || 'Failed to calculate salary breakdown.');
+        this.loading.set(false);
       }
     });
   }
@@ -201,3 +213,4 @@ export class SalaryCalculatorComponent implements OnInit {
     this.calculate();
   }
 }
+
