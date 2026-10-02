@@ -1,5 +1,5 @@
 <div class="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
-  <app-header (openAiModal)="showAiModal = true"></app-header>
+  <app-header (openAiModal)="showAiModal.set(true)"></app-header>
 
   <main class="flex-grow">
     <router-outlet></router-outlet>
@@ -7,5 +7,7 @@
 
   <app-footer></app-footer>
 
-  <app-ai-modal *ngIf="showAiModal" (close)="showAiModal = false"></app-ai-modal>
+  @if (showAiModal()) {
+    <app-ai-modal (close)="showAiModal.set(false)"></app-ai-modal>
+  }
 </div>

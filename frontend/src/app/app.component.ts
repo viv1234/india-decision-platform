@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './shared/components/header/header.component';
@@ -16,7 +16,7 @@ import { SeoService } from './core/services/seo.service';
 })
 export class AppComponent implements OnInit {
   title = 'BharatDecision Platform';
-  showAiModal: boolean = false;
+  showAiModal = signal<boolean>(false);
 
   constructor(
     private analyticsService: AnalyticsService,
